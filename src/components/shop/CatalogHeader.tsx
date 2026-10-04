@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ArrowRight, ChevronRight } from "lucide-react";
 import { Category } from "@/types";
 import { useLanguageStore } from "@/store/language";
 
@@ -31,6 +31,13 @@ export function CatalogHeader({
           ? t.catalog.newArrivals
           : t.catalog.collection;
 
+  const allProductsParams = new URLSearchParams();
+  if (search) allProductsParams.set("search", search);
+  if (tag) allProductsParams.set("tag", tag);
+  const allProductsHref = allProductsParams.size
+    ? `/products?${allProductsParams.toString()}`
+    : "/products";
+
   return (
     <>
       <div className="flex items-center gap-2 text-xs text-gray-500 mb-6">
@@ -51,10 +58,21 @@ export function CatalogHeader({
         <h1 className="font-serif italic text-3xl sm:text-4xl text-[#5C1429]">
           {title}
         </h1>
-        <p className="text-xs sm:text-sm text-gray-600 mt-1">
-          {count} {count === 1 ? t.catalog.productSingular : t.catalog.productPlural}{" "}
-          {t.catalog.available}
-        </p>
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <p className="text-xs sm:text-sm text-gray-600">
+            {count} {count === 1 ? t.catalog.productSingular : t.catalog.productPlural}{" "}
+            {t.catalog.available}
+          </p>
+          {category && (
+            <Link
+              href={allProductsHref}
+              className="group inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-[#5C1429] transition-colors hover:text-[#7A1F39] sm:text-sm"
+            >
+              <span>{t.popular.viewAll}</span>
+              <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
+            </Link>
+          )}
+        </div>
       </div>
     </>
   );

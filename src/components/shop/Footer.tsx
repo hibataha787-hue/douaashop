@@ -9,11 +9,11 @@ export function Footer() {
   const { t } = useLanguageStore();
 
   return (
-    <footer className="bg-[#2D0A14] text-white pt-16 pb-10 border-t-4 border-[#5C1429]">
+    <footer className="border-t-4 border-[#5C1429] bg-[#2D0A14] pt-10 pb-8 text-white sm:pt-16 sm:pb-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 pb-12 border-b border-[#521C2B]">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-8 border-b border-[#521C2B] pb-8 sm:gap-10 sm:pb-12 md:grid-cols-2 lg:grid-cols-4">
           {/* Col 1: Brand Info */}
-          <div className="space-y-4">
+          <div className="col-span-2 space-y-3 sm:space-y-4 lg:col-span-1">
             <div className="flex items-center gap-2.5">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#8C2341] to-[#BA375D] flex items-center justify-center text-white shadow-sm">
                 <span className="font-serif text-xl font-bold tracking-tight">D</span>
@@ -50,7 +50,7 @@ export function Footer() {
             <h4 className="font-serif text-base font-bold text-[#F8BAC7] tracking-wide">
               {t.footer.quickLinks}
             </h4>
-            <ul className="space-y-2 text-xs text-[#F2C2CD]">
+            <ul className="space-y-2 text-[11px] leading-relaxed text-[#F2C2CD] sm:text-xs">
               <li>
                 <Link href="/" className="hover:text-white transition-colors">
                   Accueil
@@ -84,7 +84,7 @@ export function Footer() {
             <h4 className="font-serif text-base font-bold text-[#F8BAC7] tracking-wide">
               {t.footer.customerService}
             </h4>
-            <ul className="space-y-2.5 text-xs text-[#F2C2CD]">
+            <ul className="space-y-2.5 text-[11px] leading-relaxed text-[#F2C2CD] sm:text-xs">
               <li className="flex items-start gap-2">
                 <MapPin className="w-4 h-4 text-[#E59AB0] shrink-0 mt-0.5" />
                 <span>{t.footer.allWilayas}</span>
@@ -101,7 +101,7 @@ export function Footer() {
           </div>
 
           {/* Col 4: Boutique Commitment */}
-          <div className="space-y-3">
+          <div className="col-span-2 space-y-3 md:col-span-1">
             <h4 className="font-serif text-base font-bold text-[#F8BAC7] tracking-wide">
               Espace Administrateur
             </h4>

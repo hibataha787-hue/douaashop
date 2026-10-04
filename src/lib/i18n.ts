@@ -36,6 +36,7 @@ export const translations = {
     categories: {
       title: "Nos catégories",
       viewAll: "Voir toutes les catégories",
+      scroll: "Faire défiler les catégories",
     },
     trust: {
       deliveryTitle: "Livraison partout en Algérie",
@@ -230,6 +231,7 @@ export const translations = {
     categories: {
       title: "أقسام المتجر",
       viewAll: "عرض كل الأقسام",
+      scroll: "تصفح الأقسام",
     },
     trust: {
       deliveryTitle: "توصيل سريع  ",

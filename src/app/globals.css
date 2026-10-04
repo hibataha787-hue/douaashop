@@ -68,3 +68,22 @@ body {
 .animate-fade-in {
   animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+@keyframes categoryNudge {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(3px);
+  }
+}
+
+.category-carousel-arrow {
+  animation: categoryNudge 1s ease-in-out 3;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .category-carousel-arrow {
+    animation: none;
+  }
+}
