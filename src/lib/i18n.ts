@@ -188,7 +188,7 @@ export const translations = {
     },
     footer: {
       aboutTitle: "À propos de Douaa Shop",
-      aboutText: "Votre boutique de cosmétiques, parfums d'exception et accessoires raffinés en Algérie. Authenticité garantie et élégance au quotidien.",
+      aboutText: "Douaa Shop — Révélez votre beauté, affirmez votre élégance.",
       quickLinks: "Liens rapides",
       customerService: "Service Client",
       contactText: "Une question ? Contactez notre équipe sur notre compte Instagram officiel.",
@@ -383,12 +383,12 @@ export const translations = {
     },
     footer: {
       aboutTitle: "عن متجر دعاء شوب",
-      aboutText: "وجهتك الأولى للعطور الفاخرة، مستحضرات التجميل الأصلية والإكسسوارات الراقية في الجزائر.",
+      aboutText: "Douaa Shop — لمسة من الجمال، عنوانها الأناقة.",
       quickLinks: "روابط سريعة",
       customerService: "خدمة الزبائن",
       contactText: "لديكِ أي استفسار؟ تواصلي مع فريقنا عبر حسابنا الرسمي على انستغرام.",
       rights: "جميع الحقوق محفوظة.",
-      allWilayas: "التوصيل متوفر لـ  ولاية جزائرية.",
+      allWilayas: "التوصيل متوفر لـ  ولايات جزائرية.",
     }
   }
 };

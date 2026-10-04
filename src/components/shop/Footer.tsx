@@ -1,6 +1,8 @@
+
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { MapPin, ShieldCheck, Heart } from "lucide-react";
 import { InstagramIcon } from "@/components/ui/InstagramIcon";
 import { useLanguageStore } from "@/store/language";
@@ -12,26 +14,32 @@ export function Footer() {
     <footer className="border-t-4 border-[#5C1429] bg-[#2D0A14] pt-10 pb-8 text-white sm:pt-16 sm:pb-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="grid grid-cols-2 gap-x-4 gap-y-8 border-b border-[#521C2B] pb-8 sm:gap-10 sm:pb-12 md:grid-cols-2 lg:grid-cols-4">
+
           {/* Col 1: Brand Info */}
           <div className="col-span-2 space-y-3 sm:space-y-4 lg:col-span-1">
-            <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#8C2341] to-[#BA375D] flex items-center justify-center text-white shadow-sm">
-                <span className="font-serif text-xl font-bold tracking-tight">D</span>
+
+            {/* Logo */}
+            <Link
+              href="/"
+              className="flex items-center shrink-0 group relative w-fit"
+            >
+              <div className="relative p-0.5 sm:p-1 rounded-full bg-gradient-to-br from-[#FDF1F3] to-[#F7E1E6] border border-[#F5D0D7] shadow-sm group-hover:shadow-md transition-all duration-300">
+                <Image
+                  src="/logo.jpeg"
+                  alt="Douaa Shop"
+                  width={180}
+                  height={60}
+                  priority
+                  className="w-auto h-10 sm:h-12 object-contain rounded-full group-hover:scale-105 transition-transform duration-200"
+                />
               </div>
-              <div className="flex flex-col">
-                <span className="font-serif text-2xl font-bold tracking-wide text-white leading-none">
-                  Douaa
-                </span>
-                <span className="text-[10px] uppercase tracking-[0.25em] text-[#E59AB0] font-semibold">
-                  Shop
-                </span>
-              </div>
-            </div>
+            </Link>
 
             <p className="text-xs text-[#F2C2CD] leading-relaxed">
               {t.footer.aboutText}
             </p>
 
+            {/* Instagram */}
             <div className="flex items-center gap-3 pt-2">
               <a
                 href="https://www.instagram.com/douaa_shop.0?stkn=ZnZnMW5yc2hzZzV6"
@@ -50,29 +58,49 @@ export function Footer() {
             <h4 className="font-serif text-base font-bold text-[#F8BAC7] tracking-wide">
               {t.footer.quickLinks}
             </h4>
+
             <ul className="space-y-2 text-[11px] leading-relaxed text-[#F2C2CD] sm:text-xs">
               <li>
-                <Link href="/" className="hover:text-white transition-colors">
+                <Link
+                  href="/"
+                  className="hover:text-white transition-colors"
+                >
                   Accueil
                 </Link>
               </li>
+
               <li>
-                <Link href="/products?category=parfums" className="hover:text-white transition-colors">
+                <Link
+                  href="/products?category=parfums"
+                  className="hover:text-white transition-colors"
+                >
                   Parfums d&apos;exception
                 </Link>
               </li>
+
               <li>
-                <Link href="/products?category=soins-visage" className="hover:text-white transition-colors">
+                <Link
+                  href="/products?category=soins-visage"
+                  className="hover:text-white transition-colors"
+                >
                   Soins visage & crèmes
                 </Link>
               </li>
+
               <li>
-                <Link href="/products?category=maquillage" className="hover:text-white transition-colors">
+                <Link
+                  href="/products?category=maquillage"
+                  className="hover:text-white transition-colors"
+                >
                   Maquillage & Pinceaux
                 </Link>
               </li>
+
               <li>
-                <Link href="/products?category=accessoires" className="hover:text-white transition-colors">
+                <Link
+                  href="/products?category=accessoires"
+                  className="hover:text-white transition-colors"
+                >
                   Sacs & Accessoires
                 </Link>
               </li>
@@ -84,15 +112,20 @@ export function Footer() {
             <h4 className="font-serif text-base font-bold text-[#F8BAC7] tracking-wide">
               {t.footer.customerService}
             </h4>
+
             <ul className="space-y-2.5 text-[11px] leading-relaxed text-[#F2C2CD] sm:text-xs">
               <li className="flex items-start gap-2">
                 <MapPin className="w-4 h-4 text-[#E59AB0] shrink-0 mt-0.5" />
                 <span>{t.footer.allWilayas}</span>
               </li>
+
               <li className="flex items-start gap-2">
                 <ShieldCheck className="w-4 h-4 text-[#E59AB0] shrink-0 mt-0.5" />
-                <span>Paiement en espèces à la livraison (Main à main)</span>
+                <span>
+                  Paiement en espèces à la livraison (Main à main)
+                </span>
               </li>
+
               <li className="flex items-start gap-2">
                 <InstagramIcon className="w-4 h-4 text-[#E59AB0] shrink-0 mt-0.5" />
                 <span>@douaa_shop.0 disponible 7j/7</span>
@@ -105,9 +138,12 @@ export function Footer() {
             <h4 className="font-serif text-base font-bold text-[#F8BAC7] tracking-wide">
               Espace Administrateur
             </h4>
+
             <p className="text-xs text-[#F2C2CD]">
-              Gérez facilement vos articles, mettez à jour vos prix et consultez les commandes reçues.
+              Gérez facilement vos articles, mettez à jour vos prix et
+              consultez les commandes reçues.
             </p>
+
             <div className="pt-2">
               <Link
                 href="/admin/login"
@@ -124,11 +160,15 @@ export function Footer() {
           <p>
             © {new Date().getFullYear()} Douaa Shop. {t.footer.rights}
           </p>
+
           <p className="flex items-center gap-1">
-            Fait avec <Heart className="w-3 h-3 text-[#E59AB0] fill-current" /> pour la beauté et l&apos;élégance.
+            Fait avec
+            <Heart className="w-3 h-3 text-[#E59AB0] fill-current" />
+            pour la beauté et l&apos;élégance.
           </p>
         </div>
       </div>
     </footer>
   );
+
 }
