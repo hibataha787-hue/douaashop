@@ -11,6 +11,7 @@ import {
   LogOut,
   Menu,
   X,
+  Layers,
 } from "lucide-react";
 import { InstagramIcon } from "@/components/ui/InstagramIcon";
 
@@ -31,6 +32,7 @@ export default function AdminLayout({
   const navItems = [
     { label: "Tableau de bord", href: "/admin/dashboard", icon: LayoutDashboard },
     { label: "Produits & Prix", href: "/admin/products", icon: Package },
+    { label: "Catégories", href: "/admin/categories", icon: Layers },
     { label: "Frais de livraison (58 Wilayas)", href: "/admin/delivery", icon: Truck },
   ];
 

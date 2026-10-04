@@ -1,18 +1,7 @@
 import { Category, DeliveryPrice, Product } from "@/types";
-import {
-  INITIAL_CATEGORIES,
-  INITIAL_PRODUCTS,
-} from "@/data/products";
-import { ALGERIA_WILAYAS } from "@/data/wilayas";
-import { createClient } from "./supabase/client";
-
-// ============================================================
-// CACHE LOCAL / FALLBACK
-// ============================================================
-
-let memoryProducts: Product[] = [...INITIAL_PRODUCTS];
-let memoryCategories: Category[] = [...INITIAL_CATEGORIES];
-let memoryWilayas: DeliveryPrice[] = [...ALGERIA_WILAYAS];
+import { createClient as createBrowserClient } from "./supabase/client";
+import { createClient as createServerClient } from "./supabase/server";
+import { cookies } from "next/headers";
 
 // ============================================================
 // SUPABASE CONFIGURATION
@@ -27,58 +16,99 @@ function isSupabaseConfigured(): boolean {
 }
 
 // ============================================================
-// CATEGORIES
+// CLIENT BROWSER
+// ============================================================
+
+function getBrowserClient() {
+  if (!isSupabaseConfigured()) {
+    throw new Error("Supabase n'est pas configuré.");
+  }
+
+  return createBrowserClient();
+}
+
+// ============================================================
+// CLIENT SERVER
+// Utilisé par les Server Actions admin
+// ============================================================
+
+async function getServerClient() {
+  if (!isSupabaseConfigured()) {
+    throw new Error("Supabase n'est pas configuré.");
+  }
+
+  const cookieStore = await cookies();
+
+  return createServerClient(cookieStore);
+}
+
+// ============================================================
+// CATEGORIES - PUBLIC
 // ============================================================
 
 export async function getCategories(): Promise<Category[]> {
-  if (isSupabaseConfigured()) {
-    try {
-      const supabase = createClient();
-
-      const { data, error } = await supabase
-        .from("categories")
-        .select("*")
-        .eq("active", true)
-        .order("display_order", { ascending: true });
-
-      if (!error && data) {
-        return data as Category[];
-      }
-
-      console.warn("Erreur catégories Supabase :", error);
-    } catch (error) {
-      console.warn("Supabase categories fetch fallback :", error);
-    }
+  if (!isSupabaseConfigured()) {
+    return [];
   }
 
-  return memoryCategories.filter((category) => category.active);
-}
+  try {
+    const supabase = getBrowserClient();
 
-export async function getAllCategoriesAdmin(): Promise<Category[]> {
-  if (isSupabaseConfigured()) {
-    try {
-      const supabase = createClient();
+    const { data, error } = await supabase
+      .from("categories")
+      .select("*")
+      .eq("active", true)
+      .order("display_order", { ascending: true });
 
-      const { data, error } = await supabase
-        .from("categories")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (!error && data) {
-        return data as Category[];
-      }
-
-      console.warn("Erreur catégories admin :", error);
-    } catch (error) {
-      console.warn("Supabase admin categories fallback :", error);
+    if (error) {
+      console.error("Erreur Supabase catégories :", error);
+      return [];
     }
-  }
 
-  return memoryCategories;
+    return (data ?? []) as Category[];
+  } catch (error) {
+    console.error("Erreur récupération catégories :", error);
+    return [];
+  }
 }
 
 // ============================================================
-// PRODUCTS
+// ADMIN - TOUTES LES CATEGORIES
+// ============================================================
+
+export async function getAllCategoriesAdmin(): Promise<Category[]> {
+  if (!isSupabaseConfigured()) {
+    return [];
+  }
+
+  try {
+    const supabase = await getServerClient();
+
+    const { data, error } = await supabase
+      .from("categories")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error(
+        "Erreur Supabase catégories admin :",
+        error
+      );
+      return [];
+    }
+
+    return (data ?? []) as Category[];
+  } catch (error) {
+    console.error(
+      "Erreur récupération catégories admin :",
+      error
+    );
+    return [];
+  }
+}
+
+// ============================================================
+// PRODUCTS - PUBLIC
 // ============================================================
 
 export async function getProducts(options?: {
@@ -87,136 +117,162 @@ export async function getProducts(options?: {
   search?: string;
   limit?: number;
 }): Promise<Product[]> {
-  if (isSupabaseConfigured()) {
-    try {
-      const supabase = createClient();
+  if (!isSupabaseConfigured()) {
+    return [];
+  }
 
-      let query = supabase
-        .from("products")
-        .select(`
-          *,
-          categories (
-            id,
-            name,
-            name_ar,
-            slug
-          )
-        `)
-        .eq("active", true);
+  try {
+    const supabase = getBrowserClient();
 
-      // Filtre catégorie par UUID Supabase
-      if (options?.categoryId) {
-        query = query.eq("category_id", options.categoryId);
-      }
+    let query = supabase
+      .from("products")
+      .select(`
+        *,
+        categories (
+          id,
+          name,
+          name_ar,
+          slug
+        )
+      `)
+      .eq("active", true)
+      .order("created_at", { ascending: false });
 
-      // Recherche
-      if (options?.search) {
-        const search = options.search.trim();
+    // --------------------------------------------------------
+    // FILTRE PAR SLUG
+    // --------------------------------------------------------
 
-        query = query.or(
-          `name.ilike.%${search}%,name_ar.ilike.%${search}%`
+    if (options?.categorySlug) {
+      const { data: category, error: categoryError } =
+        await supabase
+          .from("categories")
+          .select("id")
+          .eq("slug", options.categorySlug)
+          .eq("active", true)
+          .maybeSingle();
+
+      if (categoryError) {
+        console.error(
+          "Erreur recherche catégorie :",
+          categoryError
         );
+        return [];
       }
 
-      if (options?.limit) {
-        query = query.limit(options.limit);
+      if (!category) {
+        return [];
       }
 
-      const { data, error } = await query;
-
-      if (!error && data) {
-        return data.map((item: any) => ({
-          ...item,
-          category_name: item.categories?.name ?? "",
-          category_name_ar: item.categories?.name_ar ?? "",
-        })) as Product[];
-      }
-
-      console.warn("Erreur produits Supabase :", error);
-    } catch (error) {
-      console.warn("Supabase products fetch fallback :", error);
+      query = query.eq("category_id", category.id);
     }
-  }
 
-  // ==========================================================
-  // FALLBACK LOCAL
-  // ==========================================================
+    // --------------------------------------------------------
+    // FILTRE PAR UUID
+    // --------------------------------------------------------
 
-  let results = memoryProducts.filter((product) => product.active);
-
-  if (options?.categoryId) {
-    results = results.filter(
-      (product) => product.category_id === options.categoryId
-    );
-  }
-
-  if (options?.categorySlug) {
-    const category = memoryCategories.find(
-      (category) => category.slug === options.categorySlug
-    );
-
-    if (category) {
-      results = results.filter(
-        (product) => product.category_id === category.id
+    else if (
+      options?.categoryId &&
+      !options.categoryId.startsWith("cat-")
+    ) {
+      query = query.eq(
+        "category_id",
+        options.categoryId
       );
     }
-  }
 
-  if (options?.search) {
-    const term = options.search.toLowerCase().trim();
+    // --------------------------------------------------------
+    // RECHERCHE
+    // --------------------------------------------------------
 
-    results = results.filter(
-      (product) =>
-        product.name.toLowerCase().includes(term) ||
-        Boolean(product.name_ar?.includes(term)) ||
-        Boolean(product.description?.toLowerCase().includes(term))
+    if (options?.search?.trim()) {
+      const search = options.search.trim();
+
+      query = query.or(
+        `name.ilike.%${search}%,name_ar.ilike.%${search}%`
+      );
+    }
+
+    // --------------------------------------------------------
+    // LIMIT
+    // --------------------------------------------------------
+
+    if (options?.limit) {
+      query = query.limit(options.limit);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error(
+        "Erreur Supabase produits :",
+        error
+      );
+      return [];
+    }
+
+    return (data ?? []).map((product: any) => ({
+      ...product,
+      category_name:
+        product.categories?.name ?? "",
+      category_name_ar:
+        product.categories?.name_ar ?? "",
+    })) as Product[];
+  } catch (error) {
+    console.error(
+      "Erreur récupération produits :",
+      error
     );
+    return [];
   }
-
-  if (options?.limit) {
-    results = results.slice(0, options.limit);
-  }
-
-  return results;
 }
 
 // ============================================================
-// ADMIN PRODUCTS
+// ADMIN - TOUS LES PRODUITS
 // ============================================================
 
 export async function getAllProductsAdmin(): Promise<Product[]> {
-  if (isSupabaseConfigured()) {
-    try {
-      const supabase = createClient();
-
-      const { data, error } = await supabase
-        .from("products")
-        .select(`
-          *,
-          categories (
-            id,
-            name,
-            name_ar,
-            slug
-          )
-        `)
-        .order("created_at", { ascending: false });
-
-      if (!error && data) {
-        return data.map((item: any) => ({
-          ...item,
-          category_name: item.categories?.name ?? "",
-          category_name_ar: item.categories?.name_ar ?? "",
-        })) as Product[];
-      }
-
-      console.warn("Erreur produits admin :", error);
-    } catch (error) {
-      console.warn("Supabase admin products fallback :", error);
-    }
+  if (!isSupabaseConfigured()) {
+    return [];
   }
 
-  return memoryProducts;
+  try {
+    const supabase = await getServerClient();
+
+    const { data, error } = await supabase
+      .from("products")
+      .select(`
+        *,
+        categories (
+          id,
+          name,
+          name_ar,
+          slug
+        )
+      `)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error(
+        "Erreur Supabase produits admin :",
+        error
+      );
+      return [];
+    }
+
+    return (data ?? []).map((product: any) => ({
+      ...product,
+      category_name:
+        product.categories?.name ?? "",
+      category_name_ar:
+        product.categories?.name_ar ?? "",
+    })) as Product[];
+  } catch (error) {
+    console.error(
+      "Erreur récupération produits admin :",
+      error
+    );
+    return [];
+  }
 }
 
 // ============================================================
@@ -226,48 +282,54 @@ export async function getAllProductsAdmin(): Promise<Product[]> {
 export async function getProductBySlug(
   slug: string
 ): Promise<Product | null> {
-  if (isSupabaseConfigured()) {
-    try {
-      const supabase = createClient();
-
-      const { data, error } = await supabase
-        .from("products")
-        .select(`
-          *,
-          categories (
-            id,
-            name,
-            name_ar,
-            slug
-          )
-        `)
-        .eq("slug", slug)
-        .eq("active", true)
-        .maybeSingle();
-
-      if (!error && data) {
-        return {
-          ...data,
-          category_name: data.categories?.name ?? "",
-          category_name_ar: data.categories?.name_ar ?? "",
-        } as Product;
-      }
-
-      if (error) {
-        console.warn("Erreur product by slug :", error);
-      }
-    } catch (error) {
-      console.warn("Supabase get product by slug fallback :", error);
-    }
+  if (!isSupabaseConfigured()) {
+    return null;
   }
 
-  return (
-    memoryProducts.find(
-      (product) =>
-        product.slug === slug ||
-        product.id === slug
-    ) || null
-  );
+  try {
+    const supabase = getBrowserClient();
+
+    const { data, error } = await supabase
+      .from("products")
+      .select(`
+        *,
+        categories (
+          id,
+          name,
+          name_ar,
+          slug
+        )
+      `)
+      .eq("slug", slug)
+      .eq("active", true)
+      .maybeSingle();
+
+    if (error) {
+      console.error(
+        "Erreur product by slug :",
+        error
+      );
+      return null;
+    }
+
+    if (!data) {
+      return null;
+    }
+
+    return {
+      ...data,
+      category_name:
+        data.categories?.name ?? "",
+      category_name_ar:
+        data.categories?.name_ar ?? "",
+    } as Product;
+  } catch (error) {
+    console.error(
+      "Erreur récupération produit par slug :",
+      error
+    );
+    return null;
+  }
 }
 
 // ============================================================
@@ -277,78 +339,93 @@ export async function getProductBySlug(
 export async function getProductById(
   id: string
 ): Promise<Product | null> {
-  if (isSupabaseConfigured()) {
-    try {
-      const supabase = createClient();
-
-      const { data, error } = await supabase
-        .from("products")
-        .select(`
-          *,
-          categories (
-            id,
-            name,
-            name_ar,
-            slug
-          )
-        `)
-        .eq("id", id)
-        .maybeSingle();
-
-      if (!error && data) {
-        return {
-          ...data,
-          category_name: data.categories?.name ?? "",
-          category_name_ar: data.categories?.name_ar ?? "",
-        } as Product;
-      }
-
-      if (error) {
-        console.warn("Erreur product by ID :", error);
-      }
-    } catch (error) {
-      console.warn("Supabase get product by id fallback :", error);
-    }
+  if (!isSupabaseConfigured()) {
+    return null;
   }
 
-  return (
-    memoryProducts.find(
-      (product) => product.id === id
-    ) || null
-  );
+  try {
+    const supabase = getBrowserClient();
+
+    const { data, error } = await supabase
+      .from("products")
+      .select(`
+        *,
+        categories (
+          id,
+          name,
+          name_ar,
+          slug
+        )
+      `)
+      .eq("id", id)
+      .maybeSingle();
+
+    if (error) {
+      console.error(
+        "Erreur product by ID :",
+        error
+      );
+      return null;
+    }
+
+    if (!data) {
+      return null;
+    }
+
+    return {
+      ...data,
+      category_name:
+        data.categories?.name ?? "",
+      category_name_ar:
+        data.categories?.name_ar ?? "",
+    } as Product;
+  } catch (error) {
+    console.error(
+      "Erreur récupération produit par ID :",
+      error
+    );
+    return null;
+  }
 }
 
 // ============================================================
-// DELIVERY
+// DELIVERY - PUBLIC
 // ============================================================
 
 export async function getDeliveryPrices(): Promise<
   DeliveryPrice[]
 > {
-  if (isSupabaseConfigured()) {
-    try {
-      const supabase = createClient();
-
-      const { data, error } = await supabase
-        .from("delivery_prices")
-        .select("*")
-        .eq("active", true)
-        .order("wilaya_code", { ascending: true });
-
-      if (!error && data) {
-        return data as DeliveryPrice[];
-      }
-
-      console.warn("Erreur delivery Supabase :", error);
-    } catch (error) {
-      console.warn(
-        "Supabase delivery prices fallback :",
-        error
-      );
-    }
+  if (!isSupabaseConfigured()) {
+    return [];
   }
 
-  return memoryWilayas.filter((wilaya) => wilaya.active);
+  try {
+    const supabase = getBrowserClient();
+
+    const { data, error } = await supabase
+      .from("delivery_prices")
+      .select("*")
+      .eq("active", true)
+      .order("wilaya_code", {
+        ascending: true,
+      });
+
+    if (error) {
+      console.error(
+        "Erreur Supabase wilayas :",
+        error
+      );
+      return [];
+    }
+
+    return (data ?? []) as DeliveryPrice[];
+  } catch (error) {
+    console.error(
+      "Erreur récupération wilayas :",
+      error
+    );
+    return [];
+  }
 }
 
 // ============================================================
@@ -358,156 +435,155 @@ export async function getDeliveryPrices(): Promise<
 export async function getDeliveryPriceByWilaya(
   wilayaCode: number
 ): Promise<DeliveryPrice | null> {
-  const all = await getDeliveryPrices();
+  const wilayas = await getDeliveryPrices();
 
   return (
-    all.find(
-      (wilaya) => wilaya.wilaya_code === wilayaCode
-    ) || null
+    wilayas.find(
+      (wilaya) =>
+        wilaya.wilaya_code === wilayaCode
+    ) ?? null
   );
 }
 
 // ============================================================
-// ADD PRODUCT
+// ADMIN - ADD PRODUCT
 // ============================================================
 
 export async function addProduct(
-  product: Omit<Product, "id" | "created_at" | "updated_at">
+  product: Omit<
+    Product,
+    "id" | "created_at" | "updated_at"
+  >
 ): Promise<Product> {
-  if (isSupabaseConfigured()) {
-    try {
-      const supabase = createClient();
+  const supabase = await getServerClient();
 
-      const { data, error } = await supabase
-        .from("products")
-        .insert({
-          name: product.name,
-          name_ar: product.name_ar,
-          slug: product.slug,
-          description: product.description,
-          description_ar: product.description_ar,
-          price: product.price,
-          old_price: product.old_price,
-          image: product.image,
-          additional_images: product.additional_images ?? [],
-          category_id: product.category_id,
-          badge: product.badge,
-          rating: product.rating ?? 5,
-          reviews_count: product.reviews_count ?? 1,
-          in_stock: product.in_stock ?? true,
-          active: product.active ?? true,
-        })
-        .select()
-        .single();
+  const { data, error } = await supabase
+    .from("products")
+    .insert({
+      name: product.name,
+      name_ar: product.name_ar ?? null,
+      slug: product.slug,
+      description: product.description ?? null,
+      description_ar: product.description_ar ?? null,
+      price: product.price,
+      old_price: product.old_price ?? null,
+      image: product.image,
+      additional_images:
+        product.additional_images ?? [],
+      category_id: product.category_id,
+      badge: product.badge ?? null,
+      rating: product.rating ?? 5,
+      reviews_count:
+        product.reviews_count ?? 1,
+      in_stock:
+        product.in_stock ?? true,
+      active:
+        product.active ?? true,
+    })
+    .select()
+    .single();
 
-      if (!error && data) {
-        return data as Product;
-      }
+  if (error) {
+    console.error(
+      "Erreur ajout produit :",
+      error
+    );
 
-      console.warn("Erreur ajout produit :", error);
-    } catch (error) {
-      console.warn("Supabase add product fallback :", error);
-    }
+    throw new Error(
+      `Impossible d'ajouter le produit : ${error.message}`
+    );
   }
 
-  const newProduct: Product = {
-    ...product,
-    id: "prod-" + Date.now(),
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  };
-
-  memoryProducts.unshift(newProduct);
-
-  return newProduct;
+  return data as Product;
 }
 
 // ============================================================
-// UPDATE PRODUCT
+// ADMIN - UPDATE PRODUCT
 // ============================================================
 
 export async function updateProduct(
   id: string,
   updates: Partial<Product>
-): Promise<Product | null> {
-  if (isSupabaseConfigured()) {
-    try {
-      const supabase = createClient();
+): Promise<Product> {
+  const supabase = await getServerClient();
 
-      const { data, error } = await supabase
-        .from("products")
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", id)
-        .select()
-        .single();
+  const allowedUpdates = {
+    name: updates.name,
+    name_ar: updates.name_ar,
+    slug: updates.slug,
+    description: updates.description,
+    description_ar: updates.description_ar,
+    price: updates.price,
+    old_price: updates.old_price,
+    image: updates.image,
+    additional_images:
+      updates.additional_images,
+    category_id: updates.category_id,
+    badge: updates.badge,
+    rating: updates.rating,
+    reviews_count:
+      updates.reviews_count,
+    in_stock: updates.in_stock,
+    active: updates.active,
+  };
 
-      if (!error && data) {
-        return data as Product;
-      }
-
-      console.warn("Erreur update produit :", error);
-    } catch (error) {
-      console.warn("Supabase update product fallback :", error);
-    }
-  }
-
-  const index = memoryProducts.findIndex(
-    (product) => product.id === id
+  const cleanUpdates = Object.fromEntries(
+    Object.entries(allowedUpdates).filter(
+      ([, value]) => value !== undefined
+    )
   );
 
-  if (index !== -1) {
-    memoryProducts[index] = {
-      ...memoryProducts[index],
-      ...updates,
-      updated_at: new Date().toISOString(),
-    };
+  const { data, error } = await supabase
+    .from("products")
+    .update(cleanUpdates)
+    .eq("id", id)
+    .select()
+    .single();
 
-    return memoryProducts[index];
+  if (error) {
+    console.error(
+      "Erreur modification produit :",
+      error
+    );
+
+    throw new Error(
+      `Impossible de modifier le produit : ${error.message}`
+    );
   }
 
-  return null;
+  return data as Product;
 }
 
 // ============================================================
-// DELETE PRODUCT
+// ADMIN - DELETE PRODUCT
 // ============================================================
 
 export async function deleteProduct(
   id: string
 ): Promise<boolean> {
-  if (isSupabaseConfigured()) {
-    try {
-      const supabase = createClient();
+  const supabase = await getServerClient();
 
-      const { error } = await supabase
-        .from("products")
-        .delete()
-        .eq("id", id);
+  const { error } = await supabase
+    .from("products")
+    .delete()
+    .eq("id", id);
 
-      if (!error) {
-        return true;
-      }
+  if (error) {
+    console.error(
+      "Erreur suppression produit :",
+      error
+    );
 
-      console.warn("Erreur suppression produit :", error);
-    } catch (error) {
-      console.warn("Supabase delete product fallback :", error);
-    }
+    throw new Error(
+      `Impossible de supprimer le produit : ${error.message}`
+    );
   }
 
-  const before = memoryProducts.length;
-
-  memoryProducts = memoryProducts.filter(
-    (product) => product.id !== id
-  );
-
-  return memoryProducts.length < before;
+  return true;
 }
 
 // ============================================================
-// UPDATE DELIVERY PRICE
+// ADMIN - UPDATE DELIVERY PRICE
 // ============================================================
 
 export async function updateDeliveryPrice(
@@ -515,52 +591,181 @@ export async function updateDeliveryPrice(
   homePrice: number,
   stopdeskPrice?: number
 ): Promise<boolean> {
-  if (isSupabaseConfigured()) {
-    try {
-      const supabase = createClient();
+  const supabase = await getServerClient();
 
-      const updateData: {
-        home_price: number;
-        stopdesk_price?: number;
-      } = {
-        home_price: homePrice,
-      };
+  const updateData: {
+    home_price: number;
+    stopdesk_price?: number;
+  } = {
+    home_price: homePrice,
+  };
 
-      if (stopdeskPrice !== undefined) {
-        updateData.stopdesk_price = stopdeskPrice;
-      }
-
-      const { error } = await supabase
-        .from("delivery_prices")
-        .update(updateData)
-        .eq("wilaya_code", wilayaCode);
-
-      if (!error) {
-        return true;
-      }
-
-      console.warn("Erreur update livraison :", error);
-    } catch (error) {
-      console.warn(
-        "Supabase update delivery fallback :",
-        error
-      );
-    }
+  if (stopdeskPrice !== undefined) {
+    updateData.stopdesk_price =
+      stopdeskPrice;
   }
 
-  const wilaya = memoryWilayas.find(
-    (item) => item.wilaya_code === wilayaCode
+  const { error } = await supabase
+    .from("delivery_prices")
+    .update(updateData)
+    .eq("wilaya_code", wilayaCode);
+
+  if (error) {
+    console.error(
+      "Erreur modification livraison :",
+      error
+    );
+
+    throw new Error(
+      `Impossible de modifier le prix de livraison : ${error.message}`
+    );
+  }
+
+  return true;
+}
+
+// ============================================================
+// ADMIN - ADD DELIVERY WILAYA
+// ============================================================
+
+export async function addDeliveryWilaya(
+  wilaya: Omit<DeliveryPrice, "id">
+): Promise<DeliveryPrice> {
+  const supabase = await getServerClient();
+
+  const { data, error } = await supabase
+    .from("delivery_prices")
+    .insert({
+      wilaya_code: wilaya.wilaya_code,
+      wilaya_name: wilaya.wilaya_name,
+      wilaya_name_ar: wilaya.wilaya_name_ar,
+      home_price: wilaya.home_price,
+      stopdesk_price: wilaya.stopdesk_price ?? null,
+      active: wilaya.active ?? true,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Erreur ajout wilaya :", error);
+    throw new Error(`Impossible d'ajouter la wilaya : ${error.message}`);
+  }
+
+  return data as DeliveryPrice;
+}
+
+// ============================================================
+// ADMIN - DELETE DELIVERY WILAYA
+// ============================================================
+
+export async function deleteDeliveryWilaya(
+  wilayaCode: number
+): Promise<boolean> {
+  const supabase = await getServerClient();
+
+  const { error } = await supabase
+    .from("delivery_prices")
+    .delete()
+    .eq("wilaya_code", wilayaCode);
+
+  if (error) {
+    console.error("Erreur suppression wilaya :", error);
+    throw new Error(`Impossible de supprimer la wilaya : ${error.message}`);
+  }
+
+  return true;
+}
+
+// ============================================================
+// ADMIN - ADD CATEGORY
+// ============================================================
+
+export async function addCategory(
+  category: Omit<Category, "id">
+): Promise<Category> {
+  const supabase = await getServerClient();
+
+  const { data, error } = await supabase
+    .from("categories")
+    .insert({
+      name: category.name,
+      name_ar: category.name_ar ?? null,
+      slug: category.slug,
+      image: category.image,
+      subtitle: category.subtitle ?? null,
+      subtitle_ar: category.subtitle_ar ?? null,
+      active: category.active ?? true,
+      display_order: category.display_order ?? 99,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Erreur ajout catégorie :", error);
+    throw new Error(`Impossible d'ajouter la catégorie : ${error.message}`);
+  }
+
+  return data as Category;
+}
+
+// ============================================================
+// ADMIN - UPDATE CATEGORY
+// ============================================================
+
+export async function updateCategory(
+  id: string,
+  updates: Partial<Category>
+): Promise<Category> {
+  const supabase = await getServerClient();
+
+  const allowed = {
+    name: updates.name,
+    name_ar: updates.name_ar,
+    slug: updates.slug,
+    image: updates.image,
+    subtitle: updates.subtitle,
+    subtitle_ar: updates.subtitle_ar,
+    active: updates.active,
+    display_order: updates.display_order,
+  };
+
+  const cleanUpdates = Object.fromEntries(
+    Object.entries(allowed).filter(([, v]) => v !== undefined)
   );
 
-  if (wilaya) {
-    wilaya.home_price = homePrice;
+  const { data, error } = await supabase
+    .from("categories")
+    .update(cleanUpdates)
+    .eq("id", id)
+    .select()
+    .single();
 
-    if (stopdeskPrice !== undefined) {
-      wilaya.stopdesk_price = stopdeskPrice;
-    }
-
-    return true;
+  if (error) {
+    console.error("Erreur modification catégorie :", error);
+    throw new Error(`Impossible de modifier la catégorie : ${error.message}`);
   }
 
-  return false;
+  return data as Category;
+}
+
+// ============================================================
+// ADMIN - DELETE CATEGORY
+// ============================================================
+
+export async function deleteCategory(
+  id: string
+): Promise<boolean> {
+  const supabase = await getServerClient();
+
+  const { error } = await supabase
+    .from("categories")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    console.error("Erreur suppression catégorie :", error);
+    throw new Error(`Impossible de supprimer la catégorie : ${error.message}`);
+  }
+
+  return true;
 }
