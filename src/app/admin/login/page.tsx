@@ -103,7 +103,7 @@ export default function AdminLoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@douaashop.dz"
+                placeholder="email"
                 className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 text-xs bg-[#FAF5F6] focus:outline-hidden focus:ring-2 focus:ring-[#5C1429]/20 focus:border-[#5C1429]"
               />
               <Mail className="w-4 h-4 text-gray-400 absolute left-3.5 top-3.5" />
