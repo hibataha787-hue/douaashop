@@ -169,11 +169,6 @@ export default function CheckoutPage() {
             result.instagramMessage
           );
 
-          sessionStorage.setItem(
-            "instagram_url",
-            result.instagramUrl
-          );
-
           clearCart();
           router.push("/confirmation");
         } else {

@@ -40,7 +40,6 @@ type CreateOrderResult =
       success: true;
       order: OrderSummary;
       instagramMessage: string;
-      instagramUrl: string;
       priceChanged: false;
       updatedProducts: [];
     }
@@ -191,10 +190,6 @@ export async function createOrderAction(
       success: true,
       order,
       instagramMessage,
-      instagramUrl:
-        process.env.NEXT_PUBLIC_INSTAGRAM_URL?.startsWith("https://ig.me/")
-          ? process.env.NEXT_PUBLIC_INSTAGRAM_URL
-          : "https://ig.me/m/douaa_shop.0",
       priceChanged: false,
       updatedProducts: [],
     };
