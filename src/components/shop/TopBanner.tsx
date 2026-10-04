@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { Truck, ShieldCheck, CreditCard, Globe } from "lucide-react";
 import { InstagramIcon } from "@/components/ui/InstagramIcon";
 import { useLanguageStore } from "@/store/language";

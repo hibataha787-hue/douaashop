@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 import { useLanguageStore } from "@/store/language";
 
@@ -33,10 +34,13 @@ export function PromoBanners() {
 
             {/* Background Image / Decoration */}
             <div className="absolute right-0 top-0 bottom-0 w-1/2 overflow-hidden pointer-events-none opacity-85 group-hover:scale-105 transition-transform duration-700">
-              <img
+              <Image
                 src="https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?auto=format&fit=crop&w=600&q=80"
                 alt="Parfums d'exception"
                 className="w-full h-full object-cover object-center"
+                fill
+                sizes="50vw"
+                unoptimized
               />
               <div className="absolute inset-0 bg-gradient-to-r from-[#5C1429] via-[#5C1429]/50 to-transparent" />
             </div>
@@ -64,10 +68,13 @@ export function PromoBanners() {
 
             {/* Background Image / Decoration */}
             <div className="absolute right-0 top-0 bottom-0 w-1/2 overflow-hidden pointer-events-none opacity-90 group-hover:scale-105 transition-transform duration-700">
-              <img
+              <Image
                 src="https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=600&q=80"
                 alt="Soin de la peau"
                 className="w-full h-full object-cover object-center"
+                fill
+                sizes="50vw"
+                unoptimized
               />
               <div className="absolute inset-0 bg-gradient-to-r from-[#FDE8EB] via-[#FDE8EB]/40 to-transparent" />
             </div>

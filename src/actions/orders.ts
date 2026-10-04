@@ -1,66 +1,156 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { getDeliveryPriceByWilaya, getProductById } from "@/lib/data-service";
-import { OrderSummary } from "@/types";
+import {
+  getDeliveryPriceByWilaya,
+  getProductById,
+} from "@/lib/data-service";
+import { OrderPriceUpdate, OrderSummary } from "@/types";
 
 const OrderSchema = z.object({
-  customerName: z.string().min(2, "Le nom doit comporter au moins 2 caractères"),
-  customerPhone: z.string().min(9, "Numéro de téléphone invalide"),
-  wilayaCode: z.number().min(1).max(58, "Code wilaya invalide"),
-  address: z.string().min(4, "Adresse trop courte"),
+  customerName: z.string().trim().min(2).max(120),
+  customerPhone: z
+    .string()
+    .trim()
+    .min(9)
+    .max(20)
+    .refine((phone) =>
+      /^(?:0[567]\d{8}|\+213[567]\d{8})$/.test(
+        phone.replace(/[\s().-]/g, "")
+      )
+    , "Numéro de téléphone algérien invalide"),
+  wilayaCode: z.number().int().min(1).max(58),
+  address: z.string().trim().min(4).max(500),
   deliveryType: z.enum(["home", "stopdesk"]).default("home"),
-  notes: z.string().optional(),
+  notes: z.string().trim().max(500).optional(),
   items: z.array(
     z.object({
-      productId: z.string(),
-      quantity: z.number().int().positive(),
+      productId: z.string().uuid(),
+      quantity: z.number().int().min(1).max(25),
+      expectedPrice: z.number().nonnegative().optional(),
     })
-  ).min(1, "Panier vide"),
+  ).min(1, "Panier vide").max(30, "Le panier dépasse le nombre maximal d'articles."),
 });
 
 export type CreateOrderInput = z.infer<typeof OrderSchema>;
 
-export async function createOrderAction(formData: CreateOrderInput) {
-  try {
-    const validated = OrderSchema.parse(formData);
+type CreateOrderResult =
+  | {
+      success: true;
+      order: OrderSummary;
+      instagramMessage: string;
+      instagramUrl: string;
+      priceChanged: false;
+      updatedProducts: [];
+    }
+  | {
+      success: false;
+      error: string;
+      priceChanged: boolean;
+      updatedProducts: OrderPriceUpdate[];
+    };
 
-    // 1. Vérifier les produits et calculer le sous-total côté serveur
-    let subtotal = 0;
-    const itemsList: OrderSummary["items"] = [];
+export async function createOrderAction(
+  formData: CreateOrderInput
+): Promise<CreateOrderResult> {
+  const parsed = OrderSchema.safeParse(formData);
+
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.issues[0]?.message ?? "Les informations de commande sont invalides.",
+      priceChanged: false,
+      updatedProducts: [],
+    };
+  }
+
+  try {
+    const validated = parsed.data;
+    const aggregatedItems = new Map<
+      string,
+      { quantity: number; expectedPrice?: number }
+    >();
 
     for (const item of validated.items) {
-      const product = await getProductById(item.productId);
-      if (!product || !product.active) {
-        throw new Error(`Un produit sélectionné n'est plus disponible.`);
+      const existing = aggregatedItems.get(item.productId);
+      const quantity = (existing?.quantity ?? 0) + item.quantity;
+      if (quantity > 25) {
+        return {
+          success: false,
+          error: "La quantité maximale par produit est de 25.",
+          priceChanged: false,
+          updatedProducts: [],
+        };
       }
-      const itemTotal = product.price * item.quantity;
-      subtotal += itemTotal;
-      itemsList.push({
-        productId: product.id,
-        productName: product.name,
-        productPrice: product.price, // prix figé au moment de la commande
-        quantity: item.quantity,
-        totalPrice: itemTotal,
-        image: product.image,
+      aggregatedItems.set(item.productId, {
+        quantity,
+        expectedPrice: item.expectedPrice,
       });
     }
 
-    // 2. Récupérer le tarif de livraison de la wilaya
+    const products = await Promise.all(
+      [...aggregatedItems].map(async ([productId, item]) => {
+        const product = await getProductById(productId);
+        if (!product || !product.active) {
+          throw new Error("Un produit sélectionné n'est plus disponible.");
+        }
+        if (!product.in_stock) {
+          throw new Error(`Le produit « ${product.name} » est en rupture de stock.`);
+        }
+        return { product, ...item };
+      })
+    );
+
+    const updatedProducts = products
+      .filter(
+        ({ product, expectedPrice }) =>
+          expectedPrice !== undefined && expectedPrice !== product.price
+      )
+      .map(({ product }) => ({
+        productId: product.id,
+        productName: product.name,
+        productPrice: product.price,
+        image: product.image,
+      }));
+
+    if (updatedProducts.length > 0) {
+      return {
+        success: false,
+        error: "Certains prix ont changé. Le panier a été actualisé : vérifiez le nouveau total puis confirmez à nouveau.",
+        priceChanged: true,
+        updatedProducts,
+      };
+    }
+
+    const itemsList: OrderSummary["items"] = products.map(
+      ({ product, quantity }) => ({
+        productId: product.id,
+        productName: product.name,
+        productPrice: product.price,
+        quantity,
+        totalPrice: product.price * quantity,
+        image: product.image,
+      })
+    );
+    const subtotal = itemsList.reduce((sum, item) => sum + item.totalPrice, 0);
+
     const wilayaData = await getDeliveryPriceByWilaya(validated.wilayaCode);
-    if (!wilayaData) throw new Error("Wilaya introuvable.");
+    if (!wilayaData) {
+      throw new Error("Wilaya introuvable ou indisponible pour la livraison.");
+    }
 
     const deliveryCost =
-      validated.deliveryType === "stopdesk" && wilayaData.stopdesk_price
-        ? wilayaData.stopdesk_price
-        : wilayaData.home_price;
-
+      validated.deliveryType === "stopdesk" &&
+      wilayaData.stopdesk_price != null
+        ? Number(wilayaData.stopdesk_price)
+        : Number(wilayaData.home_price);
     const total = subtotal + deliveryCost;
+    const orderNumber = `DOUAA-${new Date().getFullYear()}-${randomUUID()
+      .slice(0, 8)
+      .toUpperCase()}`;
 
-    // 3. Générer un numéro de commande unique (local, pas stocké)
-    const orderNumber = `DOUAA-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-
-    const orderSummary: OrderSummary = {
+    const order: OrderSummary = {
       orderNumber,
       customerName: validated.customerName,
       customerPhone: validated.customerPhone,
@@ -71,15 +161,16 @@ export async function createOrderAction(formData: CreateOrderInput) {
       subtotal,
       deliveryCost,
       total,
-      notes: validated.notes || "",
+      notes: validated.notes ?? "",
       items: itemsList,
     };
 
-    // 4. Générer le message Instagram pré-formaté
     const itemsText = itemsList
-      .map((it) => `• ${it.productName} x${it.quantity} → ${it.productPrice.toLocaleString("fr-DZ")} DA`)
+      .map(
+        (item) =>
+          `• ${item.productName} x${item.quantity} → ${item.totalPrice.toLocaleString("fr-DZ")} DA`
+      )
       .join("\n");
-
     const instagramMessage =
       `🌸 Bonjour Douaa Shop 🌸\n` +
       `Je souhaite passer la commande suivante :\n\n` +
@@ -96,21 +187,27 @@ export async function createOrderAction(formData: CreateOrderInput) {
       (validated.notes ? `📝 Note : ${validated.notes}\n\n` : "") +
       `Merci ! ✨`;
 
-    // 5. Construire le lien direct Instagram DM avec le message pré-rempli
-    // Instagram direct ne supporte pas le texte pré-rempli via URL,
-    // donc on copie le message dans le clipboard côté client via sessionStorage
-    const instagramUrl = `https://www.instagram.com/douaa_shop.0?stkn=ZnZnMW5yc2hzZzV6`;
-
     return {
       success: true,
-      order: orderSummary,
+      order,
       instagramMessage,
-      instagramUrl,
+      instagramUrl:
+        process.env.NEXT_PUBLIC_INSTAGRAM_URL?.startsWith("https://ig.me/")
+          ? process.env.NEXT_PUBLIC_INSTAGRAM_URL
+          : "https://ig.me/m/douaa_shop.0",
+      priceChanged: false,
+      updatedProducts: [],
     };
-  } catch (error: any) {
+  } catch (error) {
+    console.error("Erreur lors de la préparation de la commande :", error);
     return {
       success: false,
-      error: error.message || "Une erreur est survenue.",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Une erreur inattendue est survenue lors de la préparation de la commande.",
+      priceChanged: false,
+      updatedProducts: [],
     };
   }
 }

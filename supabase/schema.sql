@@ -49,8 +49,8 @@ CREATE TABLE IF NOT EXISTS public.delivery_prices (
   wilaya_code INT UNIQUE NOT NULL,
   wilaya_name VARCHAR(100) NOT NULL,
   wilaya_name_ar VARCHAR(100) NOT NULL,
-  home_price NUMERIC(10, 2) NOT NULL DEFAULT 600.00,
-  stopdesk_price NUMERIC(10, 2) DEFAULT 400.00,
+  home_price NUMERIC(10, 2) NOT NULL DEFAULT 600.00 CHECK (home_price >= 0),
+  stopdesk_price NUMERIC(10, 2) DEFAULT 400.00 CHECK (stopdesk_price IS NULL OR stopdesk_price >= 0),
   active BOOLEAN DEFAULT true,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -67,6 +67,16 @@ CREATE TABLE IF NOT EXISTS public.admins (
 CREATE INDEX IF NOT EXISTS idx_products_category ON public.products(category_id);
 CREATE INDEX IF NOT EXISTS idx_products_active ON public.products(active);
 CREATE INDEX IF NOT EXISTS idx_delivery_wilaya ON public.delivery_prices(wilaya_code);
+
+ALTER TABLE public.delivery_prices
+  DROP CONSTRAINT IF EXISTS delivery_prices_home_price_check;
+ALTER TABLE public.delivery_prices
+  ADD CONSTRAINT delivery_prices_home_price_check CHECK (home_price >= 0);
+ALTER TABLE public.delivery_prices
+  DROP CONSTRAINT IF EXISTS delivery_prices_stopdesk_price_check;
+ALTER TABLE public.delivery_prices
+  ADD CONSTRAINT delivery_prices_stopdesk_price_check
+  CHECK (stopdesk_price IS NULL OR stopdesk_price >= 0);
 
 -- TRIGGER POUR MISE À JOUR DU CHAMP updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -91,27 +101,55 @@ ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.delivery_prices ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.admins ENABLE ROW LEVEL SECURITY;
 
--- CATEGORIES: Tout le monde peut lire les actives, admins peuvent modifier
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN
+LANGUAGE SQL
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.admins
+    WHERE id = (SELECT auth.uid())
+  );
+$$;
+
+REVOKE ALL ON FUNCTION public.is_admin() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated;
+
+DROP POLICY IF EXISTS "Public can view active categories" ON public.categories;
+DROP POLICY IF EXISTS "Admins full access on categories" ON public.categories;
+DROP POLICY IF EXISTS "Public can view active products" ON public.products;
+DROP POLICY IF EXISTS "Admins full access on products" ON public.products;
+DROP POLICY IF EXISTS "Public can view delivery prices" ON public.delivery_prices;
+DROP POLICY IF EXISTS "Admins can update delivery prices" ON public.delivery_prices;
+DROP POLICY IF EXISTS "Admins can view admins table" ON public.admins;
+
+-- Public reads are limited to active rows; mutations require an admin record.
 CREATE POLICY "Public can view active categories" ON public.categories
-  FOR SELECT USING (active = true);
+  FOR SELECT TO anon, authenticated USING (active = true);
 
 CREATE POLICY "Admins full access on categories" ON public.categories
-  FOR ALL USING (auth.role() = 'authenticated');
+  FOR ALL TO authenticated
+  USING ((SELECT public.is_admin()))
+  WITH CHECK ((SELECT public.is_admin()));
 
--- PRODUCTS: Tout le monde peut lire les actifs, admins peuvent modifier
 CREATE POLICY "Public can view active products" ON public.products
-  FOR SELECT USING (active = true);
+  FOR SELECT TO anon, authenticated USING (active = true);
 
 CREATE POLICY "Admins full access on products" ON public.products
-  FOR ALL USING (auth.role() = 'authenticated');
+  FOR ALL TO authenticated
+  USING ((SELECT public.is_admin()))
+  WITH CHECK ((SELECT public.is_admin()));
 
--- DELIVERY_PRICES: Tout le monde peut consulter les prix de livraison
 CREATE POLICY "Public can view delivery prices" ON public.delivery_prices
-  FOR SELECT USING (active = true);
+  FOR SELECT TO anon, authenticated USING (active = true);
 
 CREATE POLICY "Admins can update delivery prices" ON public.delivery_prices
-  FOR ALL USING (auth.role() = 'authenticated');
+  FOR ALL TO authenticated
+  USING ((SELECT public.is_admin()))
+  WITH CHECK ((SELECT public.is_admin()));
 
--- ADMINS: Réservé aux administrateurs
 CREATE POLICY "Admins can view admins table" ON public.admins
-  FOR SELECT USING (auth.role() = 'authenticated');
+  FOR SELECT TO authenticated USING (id = (SELECT auth.uid()));

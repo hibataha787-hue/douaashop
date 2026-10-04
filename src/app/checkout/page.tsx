@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 
 import { TopBanner } from "@/components/shop/TopBanner";
 import { Header } from "@/components/shop/Header";
@@ -13,6 +14,7 @@ import { getWilayas } from "@/data/wilayas";
 import { DeliveryPrice } from "@/types";
 import { formatPrice } from "@/lib/utils";
 import { createOrderAction } from "@/actions/orders";
+import { useLanguageStore } from "@/store/language";
 
 import {
   ShieldCheck,
@@ -24,9 +26,10 @@ import {
 
 export default function CheckoutPage() {
   const router = useRouter();
+  const { t, language } = useLanguageStore();
   const [isPending, startTransition] = useTransition();
 
-  const { items, getSubtotal, clearCart } = useCartStore();
+  const { items, getSubtotal, clearCart, updateProductPrices } = useCartStore();
   const subtotal = getSubtotal();
 
   // =========================
@@ -47,6 +50,7 @@ export default function CheckoutPage() {
   // =========================
   const [wilayas, setWilayas] = useState<DeliveryPrice[]>([]);
   const [isLoadingWilayas, setIsLoadingWilayas] = useState(true);
+  const [wilayaLoadError, setWilayaLoadError] = useState("");
 
   useEffect(() => {
     const loadWilayas = async () => {
@@ -65,6 +69,11 @@ export default function CheckoutPage() {
         }
       } catch (error) {
         console.error("Erreur chargement wilayas :", error);
+        setWilayaLoadError(
+          error instanceof Error
+            ? error.message
+            : "Impossible de charger les tarifs de livraison."
+        );
         setWilayas([]);
       } finally {
         setIsLoadingWilayas(false);
@@ -142,33 +151,42 @@ export default function CheckoutPage() {
         items: items.map((it) => ({
           productId: it.product.id,
           quantity: it.quantity,
+          expectedPrice: it.product.price,
         })),
       };
 
-      const result = await createOrderAction(payload);
+      try {
+        const result = await createOrderAction(payload);
 
-      if (result.success && result.order) {
-        sessionStorage.setItem(
-          "last_order",
-          JSON.stringify(result.order)
-        );
+        if (result.success) {
+          sessionStorage.setItem(
+            "last_order",
+            JSON.stringify(result.order)
+          );
 
-        sessionStorage.setItem(
-          "instagram_message",
-          result.instagramMessage || ""
-        );
+          sessionStorage.setItem(
+            "instagram_message",
+            result.instagramMessage
+          );
 
-        sessionStorage.setItem(
-          "instagram_url",
-          result.instagramUrl || ""
-        );
+          sessionStorage.setItem(
+            "instagram_url",
+            result.instagramUrl
+          );
 
-        clearCart();
-        router.push("/confirmation");
-      } else {
+          clearCart();
+          router.push("/confirmation");
+        } else {
+          if (result.priceChanged) {
+            updateProductPrices(result.updatedProducts);
+          }
+          setErrorMessage(result.error);
+        }
+      } catch (error) {
         setErrorMessage(
-          result.error ||
-          "Une erreur est survenue lors de la validation."
+          error instanceof Error
+            ? error.message
+            : "Une erreur inattendue est survenue lors de la validation."
         );
       }
     });
@@ -186,19 +204,18 @@ export default function CheckoutPage() {
         <main className="flex-1 py-16 flex items-center justify-center">
           <div className="text-center space-y-4 max-w-md p-6">
             <h2 className="font-serif text-2xl font-bold text-gray-900">
-              Votre panier est vide
+              {t.checkout.emptyCart}
             </h2>
 
             <p className="text-xs text-gray-500">
-              Ajoutez des articles à votre panier avant de procéder à la
-              commande.
+              {t.checkout.emptyCartText}
             </p>
 
             <Link
               href="/products"
               className="inline-block px-6 py-3 rounded-full bg-[#5C1429] text-white text-xs font-bold"
             >
-              Retour au catalogue
+              {t.checkout.catalogLink}
             </Link>
           </div>
         </main>
@@ -225,12 +242,12 @@ export default function CheckoutPage() {
               className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-[#5C1429] transition-colors"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Retour au panier</span>
+              <span>{t.checkout.backToCart}</span>
             </Link>
           </div>
 
           <h1 className="font-serif italic text-3xl sm:text-4xl text-[#5C1429] mb-8">
-            Validation de votre Commande
+            {t.checkout.orderTitle}
           </h1>
 
           {errorMessage && (
@@ -256,14 +273,14 @@ export default function CheckoutPage() {
                   </div>
 
                   <h3 className="font-serif text-lg font-bold text-gray-900">
-                    Informations du Destinataire
+                    {t.checkout.recipient}
                   </h3>
                 </div>
 
                 {/* Nom */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-gray-800">
-                    Nom et Prénom{" "}
+                    {t.checkout.fullName}{" "}
                     <span className="text-red-500">*</span>
                   </label>
 
@@ -272,7 +289,7 @@ export default function CheckoutPage() {
                     required
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
-                    placeholder="Ex: Amira Benali"
+                    placeholder={t.checkout.fullNamePlaceholder}
                     className="w-full px-4 py-3 rounded-xl border border-gray-200 text-xs focus:outline-hidden focus:ring-2 focus:ring-[#5C1429]/20 focus:border-[#5C1429] transition-all bg-[#FAF5F6]"
                   />
                 </div>
@@ -280,7 +297,7 @@ export default function CheckoutPage() {
                 {/* Téléphone */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-gray-800">
-                    Numéro de Téléphone{" "}
+                    {t.checkout.phone}{" "}
                     <span className="text-red-500">*</span>
                   </label>
 
@@ -289,20 +306,21 @@ export default function CheckoutPage() {
                     required
                     value={customerPhone}
                     onChange={(e) => setCustomerPhone(e.target.value)}
-                    placeholder="Ex: 0550 12 34 56 ou 06 / 07..."
+                    placeholder={t.checkout.phonePlaceholder}
                     className="w-full px-4 py-3 rounded-xl border border-gray-200 text-xs focus:outline-hidden focus:ring-2 focus:ring-[#5C1429]/20 focus:border-[#5C1429] transition-all bg-[#FAF5F6]"
                   />
 
                   <p className="text-[11px] text-gray-400">
-                    Le livreur vous appellera sur ce numéro avant la
-                    livraison.
+                    {language === "ar"
+                      ? "سيتصل بكِ عامل التوصيل على هذا الرقم قبل التسليم."
+                      : "Le livreur vous appellera sur ce numéro avant la livraison."}
                   </p>
                 </div>
 
                 {/* Wilaya */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-gray-800">
-                    Wilaya de Livraison (58 Wilayas){" "}
+                    {t.checkout.wilaya}{" "}
                     <span className="text-red-500">*</span>
                   </label>
 
@@ -316,11 +334,11 @@ export default function CheckoutPage() {
                   >
                     {isLoadingWilayas ? (
                       <option value={16}>
-                        Chargement des wilayas...
+                        {t.checkout.wilayaLoading}
                       </option>
                     ) : wilayas.length === 0 ? (
                       <option value="">
-                        Aucune wilaya disponible
+                        {t.checkout.noWilaya}
                       </option>
                     ) : (
                       wilayas.map((w) => (
@@ -335,12 +353,17 @@ export default function CheckoutPage() {
                       ))
                     )}
                   </select>
+                  {wilayaLoadError && (
+                    <p role="alert" className="text-xs text-red-700">
+                      {wilayaLoadError}
+                    </p>
+                  )}
                 </div>
 
                 {/* Type livraison */}
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-gray-800">
-                    Mode de livraison
+                    {t.checkout.deliveryType}
                   </label>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -362,7 +385,7 @@ export default function CheckoutPage() {
 
                       <div>
                         <span className="block text-xs font-bold text-gray-900">
-                          À domicile
+                          {t.checkout.deliveryHome}
                         </span>
 
                         <span className="text-[11px] text-[#5C1429] font-semibold">
@@ -393,7 +416,7 @@ export default function CheckoutPage() {
 
                       <div>
                         <span className="block text-xs font-bold text-gray-900">
-                          Point relais (Stop Desk)
+                          {t.checkout.deliveryStopdesk}
                         </span>
 
                         <span className="text-[11px] text-[#5C1429] font-semibold">
@@ -401,9 +424,7 @@ export default function CheckoutPage() {
                             ? formatPrice(
                               Number(
                                 currentWilaya.stopdesk_price ??
-                                Number(
-                                  currentWilaya.home_price
-                                ) - 150
+                                currentWilaya.home_price
                               )
                             )
                             : "..."}
@@ -416,7 +437,7 @@ export default function CheckoutPage() {
                 {/* Adresse */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-gray-800">
-                    Commune et Adresse complète{" "}
+                    {t.checkout.addressLabel}{" "}
                     <span className="text-red-500">*</span>
                   </label>
 
@@ -425,7 +446,7 @@ export default function CheckoutPage() {
                     rows={2}
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
-                    placeholder="Ex: Cité 500 logts, Bâtiment B, Alger Centre"
+                    placeholder={t.checkout.addressPlaceholder}
                     className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-xs focus:outline-hidden focus:ring-2 focus:ring-[#5C1429]/20 focus:border-[#5C1429] transition-all bg-[#FAF5F6]"
                   />
                 </div>
@@ -433,14 +454,14 @@ export default function CheckoutPage() {
                 {/* Remarques */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-gray-800">
-                    Remarques ou instructions particulières (Optionnel)
+                    {t.checkout.notesLabel}
                   </label>
 
                   <input
                     type="text"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Ex: Me contacter de préférence après 14h..."
+                    placeholder={t.checkout.notesPlaceholder}
                     className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-xs focus:outline-hidden focus:ring-2 focus:ring-[#5C1429]/20 focus:border-[#5C1429] transition-all bg-[#FAF5F6]"
                   />
                 </div>
@@ -458,7 +479,7 @@ export default function CheckoutPage() {
                   </div>
 
                   <h3 className="font-serif text-lg font-bold text-gray-900">
-                    Récapitulatif de Commande
+                    {t.checkout.orderSummary}
                   </h3>
                 </div>
 
@@ -470,19 +491,22 @@ export default function CheckoutPage() {
                       className="flex items-center justify-between gap-3 text-xs py-1.5 border-b border-gray-50"
                     >
                       <div className="flex items-center gap-2.5">
-                        <img
+                        <Image
                           src={it.product.image}
-                          alt={it.product.name}
+                          alt={language === "ar" && it.product.name_ar ? it.product.name_ar : it.product.name}
                           className="w-10 h-10 rounded-lg object-contain bg-[#FAF2F4] p-1 border border-gray-100"
+                          width={40}
+                          height={40}
+                          unoptimized
                         />
 
                         <div>
                           <span className="font-bold text-gray-900 line-clamp-1">
-                            {it.product.name}
+                            {language === "ar" && it.product.name_ar ? it.product.name_ar : it.product.name}
                           </span>
 
                           <span className="text-gray-500">
-                            Quantité : {it.quantity}
+                            {t.product.quantity} {it.quantity}
                           </span>
                         </div>
                       </div>
@@ -499,7 +523,7 @@ export default function CheckoutPage() {
                 {/* Prix */}
                 <div className="space-y-2.5 pt-2 text-xs text-gray-600">
                   <div className="flex justify-between">
-                    <span>Sous-total articles :</span>
+                    <span>{t.checkout.articlesTotal} :</span>
 
                     <span className="font-bold text-gray-900">
                       {formatPrice(subtotal)}
@@ -510,7 +534,7 @@ export default function CheckoutPage() {
                     <span className="flex items-center gap-1.5">
                       <Truck className="w-3.5 h-3.5 text-[#5C1429]" />
 
-                      Livraison (
+                      {t.checkout.deliveryFee} (
                       {currentWilaya?.wilaya_name ?? "Wilaya"}
                       ) :
                     </span>
@@ -522,7 +546,7 @@ export default function CheckoutPage() {
 
                   <div className="border-t-2 border-[#F5D5DC] pt-3 flex justify-between items-baseline">
                     <span className="font-bold text-sm text-gray-900">
-                      Total à payer :
+                      {t.checkout.totalLabel}
                     </span>
 
                     <span className="font-serif text-2xl font-bold text-[#5C1429]">
@@ -536,8 +560,7 @@ export default function CheckoutPage() {
                   <ShieldCheck className="w-5 h-5 shrink-0" />
 
                   <span className="font-semibold">
-                    Paiement en espèces à la livraison après vérification
-                    de votre colis.
+                    {t.checkout.cashOnDeliveryBadge}
                   </span>
                 </div>
 
@@ -551,19 +574,19 @@ export default function CheckoutPage() {
                   {isPending ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Validation en cours...</span>
+                      <span>{t.checkout.submitting}</span>
                     </>
                   ) : isLoadingWilayas ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Chargement...</span>
+                      <span>{t.checkout.wilayaLoading}</span>
                     </>
                   ) : (
                     <>
                       <Sparkles className="w-4 h-4 text-[#F7BAC7]" />
 
                       <span>
-                        Confirmer la commande ({formatPrice(total)})
+                        {t.checkout.confirmBtn} ({formatPrice(total)})
                       </span>
                     </>
                   )}

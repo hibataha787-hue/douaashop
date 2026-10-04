@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { MapPin, Phone, ShieldCheck, Heart } from "lucide-react";
+import { MapPin, ShieldCheck, Heart } from "lucide-react";
 import { InstagramIcon } from "@/components/ui/InstagramIcon";
 import { useLanguageStore } from "@/store/language";
 

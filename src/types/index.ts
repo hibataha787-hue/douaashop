@@ -23,6 +23,7 @@ export interface Product {
   additional_images?: string[];
   category_id: string;
   category_name?: string;
+  category_name_ar?: string;
   badge?: string;
   rating: number;
   reviews_count: number;
@@ -38,7 +39,7 @@ export interface DeliveryPrice {
   wilaya_name: string;
   wilaya_name_ar: string;
   home_price: number;
-  stopdesk_price?: number;
+  stopdesk_price?: number | null;
   active: boolean;
 }
 
@@ -69,4 +70,11 @@ export interface OrderSummary {
   total: number;
   notes?: string;
   items: OrderSummaryItem[];
+}
+
+export interface OrderPriceUpdate {
+  productId: string;
+  productName: string;
+  productPrice: number;
+  image: string;
 }

@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from "react";
 import { DeliveryPrice } from "@/types";
-import { formatPrice } from "@/lib/utils";
 import {
   updateDeliveryPriceAction,
   addDeliveryWilayaAction,
@@ -30,6 +29,7 @@ export function DeliveryManagement({ initialWilayas }: DeliveryManagementProps) 
     [code: number]: { home: number; stopdesk?: number };
   }>({});
   const [savedCodes, setSavedCodes] = useState<number[]>([]);
+  const [operationError, setOperationError] = useState("");
   const [isPending, startTransition] = useTransition();
 
   // Add Wilaya Modal
@@ -58,7 +58,7 @@ export function DeliveryManagement({ initialWilayas }: DeliveryManagementProps) 
           field === "stopdesk"
             ? value
             : prev[code]?.stopdesk ??
-              (wilayas.find((w) => w.wilaya_code === code)?.stopdesk_price || 400),
+            (wilayas.find((w) => w.wilaya_code === code)?.stopdesk_price ?? 400),
       },
     }));
   };
@@ -69,12 +69,17 @@ export function DeliveryManagement({ initialWilayas }: DeliveryManagementProps) 
     const newStopdesk = currentEdit?.stopdesk ?? w.stopdesk_price;
 
     startTransition(async () => {
-      const res = await updateDeliveryPriceAction(
-        w.wilaya_code,
-        newHome,
-        newStopdesk
-      );
-      if (res.success) {
+      try {
+        const res = await updateDeliveryPriceAction(
+          w.wilaya_code,
+          newHome,
+          newStopdesk
+        );
+        if (!res.success) {
+          setOperationError(res.error ?? "Impossible d'enregistrer ce tarif.");
+          return;
+        }
+        setOperationError("");
         setWilayas((prev) =>
           prev.map((item) =>
             item.wilaya_code === w.wilaya_code
@@ -86,6 +91,10 @@ export function DeliveryManagement({ initialWilayas }: DeliveryManagementProps) 
         setTimeout(() => {
           setSavedCodes((prev) => prev.filter((c) => c !== w.wilaya_code));
         }, 2000);
+      } catch (error) {
+        setOperationError(
+          error instanceof Error ? error.message : "Impossible d'enregistrer ce tarif."
+        );
       }
     });
   };
@@ -94,9 +103,18 @@ export function DeliveryManagement({ initialWilayas }: DeliveryManagementProps) 
     if (!confirm(`Supprimer la wilaya "${w.wilaya_name}" (${String(w.wilaya_code).padStart(2, "0")}) ?`))
       return;
     startTransition(async () => {
-      const res = await deleteDeliveryWilayaAction(w.wilaya_code);
-      if (res.success) {
+      try {
+        const res = await deleteDeliveryWilayaAction(w.wilaya_code);
+        if (!res.success) {
+          setOperationError(res.error ?? "Impossible de supprimer cette wilaya.");
+          return;
+        }
+        setOperationError("");
         setWilayas((prev) => prev.filter((item) => item.wilaya_code !== w.wilaya_code));
+      } catch (error) {
+        setOperationError(
+          error instanceof Error ? error.message : "Impossible de supprimer cette wilaya."
+        );
       }
     });
   };
@@ -122,22 +140,28 @@ export function DeliveryManagement({ initialWilayas }: DeliveryManagementProps) 
     }
 
     startTransition(async () => {
-      const res = await addDeliveryWilayaAction({
-        wilaya_code: formCode,
-        wilaya_name: formName,
-        wilaya_name_ar: formNameAr,
-        home_price: formHome,
-        stopdesk_price: formStopdesk,
-        active: true,
-      });
+      try {
+        const res = await addDeliveryWilayaAction({
+          wilaya_code: formCode,
+          wilaya_name: formName,
+          wilaya_name_ar: formNameAr,
+          home_price: formHome,
+          stopdesk_price: formStopdesk,
+          active: true,
+        });
 
-      if (res.success && res.wilaya) {
-        setWilayas((prev) =>
-          [...prev, res.wilaya!].sort((a, b) => a.wilaya_code - b.wilaya_code)
+        if (res.success && res.wilaya) {
+          setWilayas((prev) =>
+            [...prev, res.wilaya].sort((a, b) => a.wilaya_code - b.wilaya_code)
+          );
+          setIsModalOpen(false);
+        } else {
+          setFormError(res.error || "Erreur lors de l'ajout.");
+        }
+      } catch (error) {
+        setFormError(
+          error instanceof Error ? error.message : "Impossible d'ajouter cette wilaya."
         );
-        setIsModalOpen(false);
-      } else {
-        setFormError(res.error || "Erreur lors de l'ajout.");
       }
     });
   };
@@ -151,6 +175,11 @@ export function DeliveryManagement({ initialWilayas }: DeliveryManagementProps) 
 
   return (
     <div className="space-y-6">
+      {operationError && (
+        <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">
+          {operationError}
+        </p>
+      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-gray-200">
         <div>
@@ -212,7 +241,7 @@ export function DeliveryManagement({ initialWilayas }: DeliveryManagementProps) 
               {filteredWilayas.map((w) => {
                 const currentEdit = editingPrices[w.wilaya_code];
                 const homeValue = currentEdit?.home ?? w.home_price;
-                const stopdeskValue = currentEdit?.stopdesk ?? (w.stopdesk_price || 400);
+                const stopdeskValue = currentEdit?.stopdesk ?? (w.stopdesk_price ?? 400);
                 const isSaved = savedCodes.includes(w.wilaya_code);
                 const hasChanges =
                   currentEdit?.home !== undefined || currentEdit?.stopdesk !== undefined;
@@ -232,6 +261,8 @@ export function DeliveryManagement({ initialWilayas }: DeliveryManagementProps) 
                       <div className="flex items-center gap-1.5">
                         <input
                           type="number"
+                          min={0}
+                          step="0.01"
                           value={homeValue}
                           onChange={(e) =>
                             handlePriceChange(w.wilaya_code, "home", Number(e.target.value))
@@ -245,6 +276,8 @@ export function DeliveryManagement({ initialWilayas }: DeliveryManagementProps) 
                       <div className="flex items-center gap-1.5">
                         <input
                           type="number"
+                          min={0}
+                          step="0.01"
                           value={stopdeskValue}
                           onChange={(e) =>
                             handlePriceChange(w.wilaya_code, "stopdesk", Number(e.target.value))
@@ -423,4 +456,3 @@ export function DeliveryManagement({ initialWilayas }: DeliveryManagementProps) 
     </div>
   );
 }
-

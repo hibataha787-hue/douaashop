@@ -2,6 +2,14 @@ import { Category, DeliveryPrice, Product } from "@/types";
 import { createClient as createBrowserClient } from "./supabase/client";
 import { createClient as createServerClient } from "./supabase/server";
 import { cookies } from "next/headers";
+import { requireAdmin } from "@/lib/supabase/admin";
+
+type ProductCategoryRecord = Product & {
+  categories:
+    | { name: string | null; name_ar: string | null; slug: string }[]
+    | { name: string | null; name_ar: string | null; slug: string }
+    | null;
+};
 
 // ============================================================
 // SUPABASE CONFIGURATION
@@ -11,7 +19,8 @@ function isSupabaseConfigured(): boolean {
   return Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY &&
-    !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("your-project")
+    !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("your-project") &&
+    !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.includes("your-publishable-key")
   );
 }
 
@@ -48,7 +57,7 @@ async function getServerClient() {
 
 export async function getCategories(): Promise<Category[]> {
   if (!isSupabaseConfigured()) {
-    return [];
+    throw new Error("Supabase n'est pas configuré.");
   }
 
   try {
@@ -62,13 +71,15 @@ export async function getCategories(): Promise<Category[]> {
 
     if (error) {
       console.error("Erreur Supabase catégories :", error);
-      return [];
+      throw new Error(`Erreur Supabase catégories : ${error.message}`);
     }
 
     return (data ?? []) as Category[];
   } catch (error) {
     console.error("Erreur récupération catégories :", error);
-    return [];
+    throw error instanceof Error
+      ? error
+      : new Error("Erreur inconnue lors de la récupération des catégories.");
   }
 }
 
@@ -78,10 +89,11 @@ export async function getCategories(): Promise<Category[]> {
 
 export async function getAllCategoriesAdmin(): Promise<Category[]> {
   if (!isSupabaseConfigured()) {
-    return [];
+    throw new Error("Supabase n'est pas configuré.");
   }
 
   try {
+    await requireAdmin();
     const supabase = await getServerClient();
 
     const { data, error } = await supabase
@@ -94,7 +106,7 @@ export async function getAllCategoriesAdmin(): Promise<Category[]> {
         "Erreur Supabase catégories admin :",
         error
       );
-      return [];
+      throw new Error(`Erreur Supabase catégories admin : ${error.message}`);
     }
 
     return (data ?? []) as Category[];
@@ -103,7 +115,9 @@ export async function getAllCategoriesAdmin(): Promise<Category[]> {
       "Erreur récupération catégories admin :",
       error
     );
-    return [];
+    throw error instanceof Error
+      ? error
+      : new Error("Erreur inconnue lors de la récupération des catégories admin.");
   }
 }
 
@@ -116,9 +130,10 @@ export async function getProducts(options?: {
   categorySlug?: string;
   search?: string;
   limit?: number;
+  tag?: "promotions" | "nouveautes";
 }): Promise<Product[]> {
   if (!isSupabaseConfigured()) {
-    return [];
+    throw new Error("Supabase n'est pas configuré.");
   }
 
   try {
@@ -152,11 +167,7 @@ export async function getProducts(options?: {
           .maybeSingle();
 
       if (categoryError) {
-        console.error(
-          "Erreur recherche catégorie :",
-          categoryError
-        );
-        return [];
+        throw new Error(`Erreur Supabase recherche catégorie : ${categoryError.message}`);
       }
 
       if (!category) {
@@ -185,11 +196,21 @@ export async function getProducts(options?: {
     // --------------------------------------------------------
 
     if (options?.search?.trim()) {
-      const search = options.search.trim();
+      const search = options.search
+        .trim()
+        .replace(/[(),]/g, " ")
+        .replace(/[%_\\]/g, "");
+      if (search) {
+        query = query.or(
+          `name.ilike.%${search}%,name_ar.ilike.%${search}%`
+        );
+      }
+    }
 
-      query = query.or(
-        `name.ilike.%${search}%,name_ar.ilike.%${search}%`
-      );
+    if (options?.tag === "promotions") {
+      query = query.like("badge", "-%");
+    } else if (options?.tag === "nouveautes") {
+      query = query.ilike("badge", "Nouveau");
     }
 
     // --------------------------------------------------------
@@ -207,22 +228,28 @@ export async function getProducts(options?: {
         "Erreur Supabase produits :",
         error
       );
-      return [];
+      throw new Error(`Erreur Supabase produits : ${error.message}`);
     }
 
-    return (data ?? []).map((product: any) => ({
+    return ((data ?? []) as unknown as ProductCategoryRecord[]).map((product) => ({
       ...product,
       category_name:
-        product.categories?.name ?? "",
+        (Array.isArray(product.categories)
+          ? product.categories[0]?.name
+          : product.categories?.name) ?? "",
       category_name_ar:
-        product.categories?.name_ar ?? "",
+        (Array.isArray(product.categories)
+          ? product.categories[0]?.name_ar
+          : product.categories?.name_ar) ?? "",
     })) as Product[];
   } catch (error) {
     console.error(
       "Erreur récupération produits :",
       error
     );
-    return [];
+    throw error instanceof Error
+      ? error
+      : new Error("Erreur inconnue lors de la récupération des produits.");
   }
 }
 
@@ -232,10 +259,11 @@ export async function getProducts(options?: {
 
 export async function getAllProductsAdmin(): Promise<Product[]> {
   if (!isSupabaseConfigured()) {
-    return [];
+    throw new Error("Supabase n'est pas configuré.");
   }
 
   try {
+    await requireAdmin();
     const supabase = await getServerClient();
 
     const { data, error } = await supabase
@@ -256,22 +284,28 @@ export async function getAllProductsAdmin(): Promise<Product[]> {
         "Erreur Supabase produits admin :",
         error
       );
-      return [];
+      throw new Error(`Erreur Supabase produits admin : ${error.message}`);
     }
 
-    return (data ?? []).map((product: any) => ({
+    return ((data ?? []) as unknown as ProductCategoryRecord[]).map((product) => ({
       ...product,
       category_name:
-        product.categories?.name ?? "",
+        (Array.isArray(product.categories)
+          ? product.categories[0]?.name
+          : product.categories?.name) ?? "",
       category_name_ar:
-        product.categories?.name_ar ?? "",
+        (Array.isArray(product.categories)
+          ? product.categories[0]?.name_ar
+          : product.categories?.name_ar) ?? "",
     })) as Product[];
   } catch (error) {
     console.error(
       "Erreur récupération produits admin :",
       error
     );
-    return [];
+    throw error instanceof Error
+      ? error
+      : new Error("Erreur inconnue lors de la récupération des produits admin.");
   }
 }
 
@@ -283,7 +317,7 @@ export async function getProductBySlug(
   slug: string
 ): Promise<Product | null> {
   if (!isSupabaseConfigured()) {
-    return null;
+    throw new Error("Supabase n'est pas configuré.");
   }
 
   try {
@@ -309,26 +343,30 @@ export async function getProductBySlug(
         "Erreur product by slug :",
         error
       );
-      return null;
+      throw new Error(`Erreur Supabase lors de la recherche du produit : ${error.message}`);
     }
 
     if (!data) {
       return null;
     }
 
+    const product = data as unknown as ProductCategoryRecord;
+    const category = Array.isArray(product.categories)
+      ? product.categories[0]
+      : product.categories;
     return {
-      ...data,
-      category_name:
-        data.categories?.name ?? "",
-      category_name_ar:
-        data.categories?.name_ar ?? "",
+      ...product,
+      category_name: category?.name ?? "",
+      category_name_ar: category?.name_ar ?? "",
     } as Product;
   } catch (error) {
     console.error(
       "Erreur récupération produit par slug :",
       error
     );
-    return null;
+    throw error instanceof Error
+      ? error
+      : new Error("Erreur inconnue lors de la recherche du produit.");
   }
 }
 
@@ -340,7 +378,7 @@ export async function getProductById(
   id: string
 ): Promise<Product | null> {
   if (!isSupabaseConfigured()) {
-    return null;
+    throw new Error("Supabase n'est pas configuré.");
   }
 
   try {
@@ -365,26 +403,30 @@ export async function getProductById(
         "Erreur product by ID :",
         error
       );
-      return null;
+      throw new Error(`Erreur Supabase lors de la recherche du produit : ${error.message}`);
     }
 
     if (!data) {
       return null;
     }
 
+    const product = data as unknown as ProductCategoryRecord;
+    const category = Array.isArray(product.categories)
+      ? product.categories[0]
+      : product.categories;
     return {
-      ...data,
-      category_name:
-        data.categories?.name ?? "",
-      category_name_ar:
-        data.categories?.name_ar ?? "",
+      ...product,
+      category_name: category?.name ?? "",
+      category_name_ar: category?.name_ar ?? "",
     } as Product;
   } catch (error) {
     console.error(
       "Erreur récupération produit par ID :",
       error
     );
-    return null;
+    throw error instanceof Error
+      ? error
+      : new Error("Erreur inconnue lors de la recherche du produit.");
   }
 }
 
@@ -396,7 +438,7 @@ export async function getDeliveryPrices(): Promise<
   DeliveryPrice[]
 > {
   if (!isSupabaseConfigured()) {
-    return [];
+    throw new Error("Supabase n'est pas configuré.");
   }
 
   try {
@@ -415,7 +457,7 @@ export async function getDeliveryPrices(): Promise<
         "Erreur Supabase wilayas :",
         error
       );
-      return [];
+      throw new Error(`Erreur Supabase wilayas : ${error.message}`);
     }
 
     return (data ?? []) as DeliveryPrice[];
@@ -424,8 +466,29 @@ export async function getDeliveryPrices(): Promise<
       "Erreur récupération wilayas :",
       error
     );
-    return [];
+    throw error instanceof Error
+      ? error
+      : new Error("Erreur inconnue lors de la récupération des wilayas.");
   }
+}
+
+export async function getAllDeliveryPricesAdmin(): Promise<DeliveryPrice[]> {
+  if (!isSupabaseConfigured()) {
+    throw new Error("Supabase n'est pas configuré.");
+  }
+
+  await requireAdmin();
+  const supabase = await getServerClient();
+  const { data, error } = await supabase
+    .from("delivery_prices")
+    .select("*")
+    .order("wilaya_code", { ascending: true });
+
+  if (error) {
+    throw new Error(`Erreur Supabase tarifs admin : ${error.message}`);
+  }
+
+  return (data ?? []) as DeliveryPrice[];
 }
 
 // ============================================================
@@ -566,7 +629,9 @@ export async function deleteProduct(
   const { error } = await supabase
     .from("products")
     .delete()
-    .eq("id", id);
+    .eq("id", id)
+    .select("id")
+    .single();
 
   if (error) {
     console.error(
@@ -589,13 +654,13 @@ export async function deleteProduct(
 export async function updateDeliveryPrice(
   wilayaCode: number,
   homePrice: number,
-  stopdeskPrice?: number
+  stopdeskPrice?: number | null
 ): Promise<boolean> {
   const supabase = await getServerClient();
 
   const updateData: {
     home_price: number;
-    stopdesk_price?: number;
+    stopdesk_price?: number | null;
   } = {
     home_price: homePrice,
   };
@@ -605,10 +670,12 @@ export async function updateDeliveryPrice(
       stopdeskPrice;
   }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("delivery_prices")
     .update(updateData)
-    .eq("wilaya_code", wilayaCode);
+    .eq("wilaya_code", wilayaCode)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     console.error(
@@ -619,6 +686,10 @@ export async function updateDeliveryPrice(
     throw new Error(
       `Impossible de modifier le prix de livraison : ${error.message}`
     );
+  }
+
+  if (!data) {
+    throw new Error("Aucun tarif trouvé pour cette wilaya.");
   }
 
   return true;
@@ -666,7 +737,9 @@ export async function deleteDeliveryWilaya(
   const { error } = await supabase
     .from("delivery_prices")
     .delete()
-    .eq("wilaya_code", wilayaCode);
+    .eq("wilaya_code", wilayaCode)
+    .select("id")
+    .single();
 
   if (error) {
     console.error("Erreur suppression wilaya :", error);
@@ -760,7 +833,9 @@ export async function deleteCategory(
   const { error } = await supabase
     .from("categories")
     .delete()
-    .eq("id", id);
+    .eq("id", id)
+    .select("id")
+    .single();
 
   if (error) {
     console.error("Erreur suppression catégorie :", error);

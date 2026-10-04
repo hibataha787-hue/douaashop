@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import {
   LayoutDashboard,
   Package,
@@ -36,9 +37,12 @@ export default function AdminLayout({
     { label: "Frais de livraison (58 Wilayas)", href: "/admin/delivery", icon: Truck },
   ];
 
-  const handleLogout = () => {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("douaa_admin_logged");
+  const handleLogout = async () => {
+    const supabase = createClient();
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error("Erreur lors de la déconnexion admin :", error);
+      return;
     }
     router.push("/admin/login");
   };

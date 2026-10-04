@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Image from "next/image";
 import { Product, Category } from "@/types";
 import { formatPrice } from "@/lib/utils";
 import {
@@ -16,8 +17,6 @@ import {
   X,
   Eye,
   EyeOff,
-  ShoppingBag,
-  Sparkles,
   Loader2,
 } from "lucide-react";
 
@@ -36,6 +35,8 @@ export function ProductManagement({
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [formError, setFormError] = useState("");
+  const [operationError, setOperationError] = useState("");
 
   // Form Fields
   const [formName, setFormName] = useState("");
@@ -50,12 +51,14 @@ export function ProductManagement({
   const [formBadge, setFormBadge] = useState("");
   const [formDescription, setFormDescription] = useState("");
   const [formActive, setFormActive] = useState(true);
+  const [formInStock, setFormInStock] = useState(true);
 
   // Editing inline price state
   const [inlinePriceEditId, setInlinePriceEditId] = useState<string | null>(null);
   const [inlinePriceValue, setInlinePriceValue] = useState<number>(0);
 
   const openAddModal = () => {
+    setFormError("");
     setEditingProduct(null);
     setFormName("");
     setFormPrice(3000);
@@ -67,10 +70,12 @@ export function ProductManagement({
     setFormBadge("");
     setFormDescription("");
     setFormActive(true);
+    setFormInStock(true);
     setIsModalOpen(true);
   };
 
   const openEditModal = (p: Product) => {
+    setFormError("");
     setEditingProduct(p);
     setFormName(p.name);
     setFormPrice(p.price);
@@ -80,61 +85,83 @@ export function ProductManagement({
     setFormBadge(p.badge || "");
     setFormDescription(p.description);
     setFormActive(p.active);
+    setFormInStock(p.in_stock);
     setIsModalOpen(true);
   };
 
   const handleSaveProduct = (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError("");
 
     startTransition(async () => {
-      if (editingProduct) {
-        // Edit existing
-        const res = await updateProductAction(editingProduct.id, {
-          name: formName,
-          price: Number(formPrice),
-          old_price: formOldPrice ? Number(formOldPrice) : undefined,
-          category_id: formCategoryId,
-          image: formImage,
-          badge: formBadge || undefined,
-          description: formDescription,
-          active: formActive,
-        });
+      try {
+        if (editingProduct) {
+          const res = await updateProductAction(editingProduct.id, {
+            name: formName,
+            price: Number(formPrice),
+            old_price: formOldPrice ? Number(formOldPrice) : undefined,
+            category_id: formCategoryId,
+            image: formImage,
+            badge: formBadge || undefined,
+            description: formDescription,
+            active: formActive,
+            in_stock: formInStock,
+          });
 
-        if (res.success && res.product) {
-          setProducts((prev) =>
-            prev.map((item) => (item.id === editingProduct.id ? res.product! : item))
-          );
-          setIsModalOpen(false);
-        }
-      } else {
-        // Create new
-        const res = await createProductAction({
-          name: formName,
-          price: Number(formPrice),
-          old_price: formOldPrice ? Number(formOldPrice) : undefined,
-          category_id: formCategoryId,
-          image: formImage,
-          badge: formBadge || undefined,
-          description: formDescription,
-          in_stock: true,
-          active: formActive,
-        });
+          if (res.success && res.product) {
+            setProducts((prev) =>
+              prev.map((item) => (item.id === editingProduct.id ? res.product! : item))
+            );
+            setIsModalOpen(false);
+          } else {
+            setFormError(res.error || "Erreur lors de la modification du produit.");
+          }
+        } else {
+          const res = await createProductAction({
+            name: formName,
+            price: Number(formPrice),
+            old_price: formOldPrice ? Number(formOldPrice) : undefined,
+            category_id: formCategoryId,
+            image: formImage,
+            badge: formBadge || undefined,
+            description: formDescription,
+            in_stock: formInStock,
+            active: formActive,
+          });
 
-        if (res.success && res.product) {
-          setProducts((prev) => [res.product!, ...prev]);
-          setIsModalOpen(false);
+          if (res.success && res.product) {
+            setProducts((prev) => [res.product!, ...prev]);
+            setIsModalOpen(false);
+          } else {
+            setFormError(res.error || "Erreur lors de la création du produit.");
+          }
         }
+      } catch (error) {
+        setFormError(
+          error instanceof Error
+            ? error.message
+            : "Une erreur inattendue est survenue."
+        );
       }
     });
   };
 
   const handleToggleActive = (product: Product) => {
     startTransition(async () => {
-      const nextActive = !product.active;
-      const res = await updateProductAction(product.id, { active: nextActive });
-      if (res.success) {
+      try {
+        const nextActive = !product.active;
+        const res = await updateProductAction(product.id, { active: nextActive });
+        if (!res.success) {
+          setOperationError(res.error ?? "Impossible de modifier le statut du produit.");
+          return;
+        }
+        setOperationError("");
         setProducts((prev) =>
           prev.map((p) => (p.id === product.id ? { ...p, active: nextActive } : p))
+        );
+      } catch (error) {
+        setOperationError(
+          error instanceof Error ? error.message : "Impossible de modifier le statut du produit."
         );
       }
     });
@@ -144,27 +171,50 @@ export function ProductManagement({
     if (!confirm("Êtes-vous sûr de vouloir supprimer cet article ?")) return;
 
     startTransition(async () => {
-      const res = await deleteProductAction(productId);
-      if (res.success) {
+      try {
+        const res = await deleteProductAction(productId);
+        if (!res.success) {
+          setOperationError(res.error ?? "Impossible de supprimer le produit.");
+          return;
+        }
+        setOperationError("");
         setProducts((prev) => prev.filter((p) => p.id !== productId));
+      } catch (error) {
+        setOperationError(
+          error instanceof Error ? error.message : "Impossible de supprimer le produit."
+        );
       }
     });
   };
 
   const handleSaveInlinePrice = (productId: string) => {
     startTransition(async () => {
-      const res = await updateProductAction(productId, { price: inlinePriceValue });
-      if (res.success) {
+      try {
+        const res = await updateProductAction(productId, { price: inlinePriceValue });
+        if (!res.success) {
+          setOperationError(res.error ?? "Impossible de modifier le prix.");
+          return;
+        }
+        setOperationError("");
         setProducts((prev) =>
           prev.map((p) => (p.id === productId ? { ...p, price: inlinePriceValue } : p))
         );
         setInlinePriceEditId(null);
+      } catch (error) {
+        setOperationError(
+          error instanceof Error ? error.message : "Impossible de modifier le prix."
+        );
       }
     });
   };
 
   return (
     <div className="space-y-6">
+      {operationError && (
+        <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">
+          {operationError}
+        </p>
+      )}
       {/* Header & Add Button */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-gray-200">
         <div>
@@ -214,10 +264,13 @@ export function ProductManagement({
                     {/* Image & Title */}
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
-                        <img
+                        <Image
                           src={product.image}
                           alt={product.name}
                           className="w-12 h-12 rounded-xl object-contain bg-[#FAF2F4] p-1 border border-gray-100 shrink-0"
+                          width={48}
+                          height={48}
+                          unoptimized
                         />
                         <div>
                           <p className="font-bold text-gray-900 text-xs line-clamp-1">
@@ -348,6 +401,15 @@ export function ProductManagement({
               </button>
             </div>
 
+            {formError && (
+              <div
+                role="alert"
+                className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold"
+              >
+                {formError}
+              </div>
+            )}
+
             <form onSubmit={handleSaveProduct} className="space-y-4">
               {/* Product Name */}
               <div className="space-y-1">
@@ -454,6 +516,16 @@ export function ProductManagement({
                   className="rounded text-[#5C1429] focus:ring-[#5C1429]"
                 />
                 <span>Publier immédiatement sur la boutique (Actif)</span>
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={formInStock}
+                  onChange={(e) => setFormInStock(e.target.checked)}
+                  className="rounded text-[#5C1429] focus:ring-[#5C1429]"
+                />
+                <span>Disponible en stock</span>
               </label>
 
               {/* Buttons */}

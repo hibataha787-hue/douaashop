@@ -13,12 +13,14 @@ export async function getWilayas(): Promise<DeliveryPrice[]> {
 
     if (error) {
       console.error("Erreur Supabase wilayas :", error);
-      return [];
+      throw new Error(`Erreur Supabase wilayas : ${error.message}`);
     }
 
     return (data ?? []) as DeliveryPrice[];
   } catch (error) {
     console.error("Erreur récupération wilayas :", error);
-    return [];
+    throw error instanceof Error
+      ? error
+      : new Error("Erreur inconnue lors de la récupération des wilayas.");
   }
 }

@@ -33,6 +33,7 @@ export const useLanguageStore = create<LanguageState>()(
     }),
     {
       name: "douaa-shop-language",
+      skipHydration: true,
       onRehydrateStorage: () => (state) => {
         if (state && typeof document !== "undefined") {
           document.documentElement.lang = state.language;

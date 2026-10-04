@@ -2,21 +2,26 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Heart, ShoppingBag, Star, Check } from "lucide-react";
 import { Product } from "@/types";
 import { formatPrice } from "@/lib/utils";
 import { useCartStore } from "@/store/cart";
 import { useLanguageStore } from "@/store/language";
+import { useFavoritesStore } from "@/store/favorites";
 
 interface ProductCardProps {
   product: Product;
 }
 
 export function ProductCard({ product }: ProductCardProps) {
-  const [isLiked, setIsLiked] = useState(false);
   const [isAdded, setIsAdded] = useState(false);
 
   const addItem = useCartStore((state) => state.addItem);
+  const isLiked = useFavoritesStore((state) =>
+    state.productIds.includes(product.id)
+  );
+  const toggleFavorite = useFavoritesStore((state) => state.toggleFavorite);
   const { language, t } = useLanguageStore();
 
   const handleAddToCart = (e: React.MouseEvent) => {
@@ -51,7 +56,7 @@ export function ProductCard({ product }: ProductCardProps) {
         <button
           onClick={(e) => {
             e.preventDefault();
-            setIsLiked(!isLiked);
+            toggleFavorite(product.id);
           }}
           className={`w-8 h-8 rounded-full bg-white/90 backdrop-blur-xs flex items-center justify-center shadow-xs hover:scale-110 transition-all pointer-events-auto cursor-pointer ${
             isLiked ? "text-red-500" : "text-gray-400 hover:text-red-500"
@@ -67,11 +72,13 @@ export function ProductCard({ product }: ProductCardProps) {
         href={`/products/${product.slug || product.id}`}
         className="block relative w-full aspect-square overflow-hidden bg-[#FAF2F4] p-4"
       >
-        <img
+        <Image
           src={product.image}
           alt={displayName}
           className="w-full h-full object-contain object-center group-hover:scale-105 transition-transform duration-500"
-          loading="lazy"
+          fill
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+          unoptimized
         />
       </Link>
 
@@ -107,9 +114,17 @@ export function ProductCard({ product }: ProductCardProps) {
 
         {/* Stock Indicator */}
         <div className="flex items-center gap-1.5 mt-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-500" />
-          <span className="text-[11px] text-emerald-700 font-medium">
-            {t.popular.inStock}
+          <span
+            className={`w-2 h-2 rounded-full ${
+              product.in_stock ? "bg-emerald-500" : "bg-red-500"
+            }`}
+          />
+          <span
+            className={`text-[11px] font-medium ${
+              product.in_stock ? "text-emerald-700" : "text-red-700"
+            }`}
+          >
+            {product.in_stock ? t.popular.inStock : t.product.outOfStock}
           </span>
         </div>
 
@@ -129,13 +144,18 @@ export function ProductCard({ product }: ProductCardProps) {
         <div className="mt-4 pt-1">
           <button
             onClick={handleAddToCart}
+            disabled={!product.in_stock}
             className={`w-full py-2.5 px-4 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 transition-all duration-200 shadow-xs cursor-pointer ${
-              isAdded
+              !product.in_stock
+                ? "bg-gray-300 text-gray-600 cursor-not-allowed"
+                : isAdded
                 ? "bg-emerald-600 text-white"
                 : "bg-[#5C1429] hover:bg-[#480F20] text-white hover:shadow-md"
             }`}
           >
-            {isAdded ? (
+            {!product.in_stock ? (
+              <span>{t.product.outOfStock}</span>
+            ) : isAdded ? (
               <>
                 <Check className="w-4 h-4" />
                 <span>{t.popular.addedToCart}</span>

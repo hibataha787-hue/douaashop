@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Image from "next/image";
 import { Category } from "@/types";
 import {
   createCategoryAction,
@@ -36,6 +37,7 @@ export function CategoryManagement({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
+  const [operationError, setOperationError] = useState("");
 
   // Form fields
   const [formName, setFormName] = useState("");
@@ -77,55 +79,70 @@ export function CategoryManagement({
     setErrorMsg("");
 
     startTransition(async () => {
-      if (editingCategory) {
-        const res = await updateCategoryAction(editingCategory.id, {
-          name: formName,
-          name_ar: formNameAr || undefined,
-          slug: formSlug || undefined,
-          image: formImage,
-          subtitle: formSubtitle || undefined,
-          display_order: formOrder,
-          active: formActive,
-        });
+      try {
+        if (editingCategory) {
+          const res = await updateCategoryAction(editingCategory.id, {
+            name: formName,
+            name_ar: formNameAr || undefined,
+            slug: formSlug || undefined,
+            image: formImage,
+            subtitle: formSubtitle || undefined,
+            display_order: formOrder,
+            active: formActive,
+          });
 
-        if (res.success && res.category) {
-          setCategories((prev) =>
-            prev.map((c) =>
-              c.id === editingCategory.id ? res.category! : c
-            )
-          );
-          setIsModalOpen(false);
+          if (res.success && res.category) {
+            setCategories((prev) =>
+              prev.map((c) =>
+                c.id === editingCategory.id ? res.category! : c
+              )
+            );
+            setIsModalOpen(false);
+          } else {
+            setErrorMsg(res.error || "Erreur lors de la modification.");
+          }
         } else {
-          setErrorMsg(res.error || "Erreur lors de la modification.");
-        }
-      } else {
-        const res = await createCategoryAction({
-          name: formName,
-          name_ar: formNameAr || undefined,
-          slug: formSlug || undefined,
-          image: formImage,
-          subtitle: formSubtitle || undefined,
-          display_order: formOrder,
-          active: formActive,
-        });
+          const res = await createCategoryAction({
+            name: formName,
+            name_ar: formNameAr || undefined,
+            slug: formSlug || undefined,
+            image: formImage,
+            subtitle: formSubtitle || undefined,
+            display_order: formOrder,
+            active: formActive,
+          });
 
-        if (res.success && res.category) {
-          setCategories((prev) => [res.category!, ...prev]);
-          setIsModalOpen(false);
-        } else {
-          setErrorMsg(res.error || "Erreur lors de la création.");
+          if (res.success && res.category) {
+            setCategories((prev) => [res.category!, ...prev]);
+            setIsModalOpen(false);
+          } else {
+            setErrorMsg(res.error || "Erreur lors de la création.");
+          }
         }
+      } catch (error) {
+        setErrorMsg(
+          error instanceof Error ? error.message : "Impossible d'enregistrer la catégorie."
+        );
       }
     });
   };
 
   const handleToggleActive = (cat: Category) => {
     startTransition(async () => {
-      const next = !cat.active;
-      const res = await updateCategoryAction(cat.id, { active: next });
-      if (res.success) {
+      try {
+        const next = !cat.active;
+        const res = await updateCategoryAction(cat.id, { active: next });
+        if (!res.success) {
+          setOperationError(res.error ?? "Impossible de modifier le statut de la catégorie.");
+          return;
+        }
+        setOperationError("");
         setCategories((prev) =>
           prev.map((c) => (c.id === cat.id ? { ...c, active: next } : c))
+        );
+      } catch (error) {
+        setOperationError(
+          error instanceof Error ? error.message : "Impossible de modifier le statut de la catégorie."
         );
       }
     });
@@ -140,15 +157,29 @@ export function CategoryManagement({
       return;
 
     startTransition(async () => {
-      const res = await deleteCategoryAction(cat.id);
-      if (res.success) {
+      try {
+        const res = await deleteCategoryAction(cat.id);
+        if (!res.success) {
+          setOperationError(res.error ?? "Impossible de supprimer la catégorie.");
+          return;
+        }
+        setOperationError("");
         setCategories((prev) => prev.filter((c) => c.id !== cat.id));
+      } catch (error) {
+        setOperationError(
+          error instanceof Error ? error.message : "Impossible de supprimer la catégorie."
+        );
       }
     });
   };
 
   return (
     <div className="space-y-6">
+      {operationError && (
+        <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">
+          {operationError}
+        </p>
+      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-gray-200">
         <div>
@@ -200,10 +231,13 @@ export function CategoryManagement({
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
                         {cat.image ? (
-                          <img
+                          <Image
                             src={cat.image}
                             alt={cat.name}
                             className="w-12 h-12 rounded-xl object-cover bg-[#FAF2F4] border border-gray-100 shrink-0"
+                            width={48}
+                            height={48}
+                            unoptimized
                           />
                         ) : (
                           <div className="w-12 h-12 rounded-xl bg-[#FAF2F4] border border-gray-100 flex items-center justify-center shrink-0">
@@ -392,11 +426,13 @@ export function CategoryManagement({
                   className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs bg-[#FAF5F6]"
                 />
                 {formImage && (
-                  <img
+                  <Image
                     src={formImage}
                     alt="Aperçu"
                     className="mt-2 w-full h-24 object-cover rounded-xl border border-gray-100"
-                    onError={(e) => ((e.target as HTMLImageElement).style.display = "none")}
+                    width={400}
+                    height={96}
+                    unoptimized
                   />
                 )}
               </div>

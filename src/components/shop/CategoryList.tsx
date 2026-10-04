@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 import { Category } from "@/types";
 import { useLanguageStore } from "@/store/language";
@@ -43,10 +44,13 @@ export function CategoryList({ categories }: CategoryListProps) {
               {/* Circular Staged Image Container */}
               <div className="relative w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 rounded-full p-1.5 bg-gradient-to-br from-[#FCE8EB] to-[#FAD4DC] border-2 border-[#F6C0CB] group-hover:border-[#5C1429] shadow-xs group-hover:shadow-md transition-all duration-300 transform group-hover:-translate-y-1.5">
                 <div className="w-full h-full rounded-full overflow-hidden bg-white">
-                  <img
+                  <Image
                     src={cat.image}
                     alt={cat.name}
                     className="w-full h-full object-cover object-center group-hover:scale-110 transition-transform duration-500"
+                    width={144}
+                    height={144}
+                    unoptimized
                   />
                 </div>
               </div>

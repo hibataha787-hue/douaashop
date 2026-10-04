@@ -1,5 +1,3 @@
-import Link from "next/link";
-import { ArrowRight } from "lucide-react";
 import { TopBanner } from "@/components/shop/TopBanner";
 import { Header } from "@/components/shop/Header";
 import { HeroSection } from "@/components/shop/HeroSection";
@@ -10,6 +8,7 @@ import { PromoBanners } from "@/components/shop/PromoBanners";
 import { Footer } from "@/components/shop/Footer";
 import { CartDrawer } from "@/components/shop/CartDrawer";
 import { getCategories, getProducts } from "@/lib/data-service";
+import { PopularProductsHeader } from "@/components/shop/PopularProductsHeader";
 
 export default async function HomePage() {
   const categories = await getCategories();
@@ -36,22 +35,7 @@ export default async function HomePage() {
         {/* 6. Popular Products Section (Produits populaires) */}
         <section className="py-14 bg-[#FCF8F9]/60">
           <div className="max-w-7xl mx-auto px-4 sm:px-6">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-8 pb-3 border-b border-[#F5D5DC]">
-              <div className="flex items-center gap-4">
-                <h2 className="font-serif italic text-2xl sm:text-3xl text-[#5C1429] font-normal">
-                  Produits populaires
-                </h2>
-                <div className="hidden sm:block h-px w-20 bg-[#F2C2CD]" />
-              </div>
-              <Link
-                href="/products"
-                className="group flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-[#5C1429] hover:text-[#7A1F39] transition-colors"
-              >
-                <span>Voir tous les produits</span>
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </Link>
-            </div>
+            <PopularProductsHeader />
 
             {/* Products Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

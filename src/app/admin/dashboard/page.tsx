@@ -1,20 +1,27 @@
 import Link from "next/link";
-import { getAllProductsAdmin, getAllCategoriesAdmin, getDeliveryPrices } from "@/lib/data-service";
+import {
+  getAllProductsAdmin,
+  getAllCategoriesAdmin,
+  getAllDeliveryPricesAdmin,
+} from "@/lib/data-service";
+import { requireAdminPage } from "@/lib/supabase/admin";
 import {
   Package,
   Truck,
   Plus,
   ArrowRight,
   Layers,
-  Sparkles,
   ExternalLink,
 } from "lucide-react";
 import { InstagramIcon } from "@/components/ui/InstagramIcon";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminDashboardPage() {
+  await requireAdminPage();
   const products = await getAllProductsAdmin();
   const categories = await getAllCategoriesAdmin();
-  const wilayas = await getDeliveryPrices();
+  const wilayas = await getAllDeliveryPricesAdmin();
 
   const activeProducts = products.filter((p) => p.active).length;
 
@@ -144,7 +151,7 @@ export default async function AdminDashboardPage() {
         >
           <div className="space-y-1">
             <h4 className="text-sm font-bold text-gray-900 group-hover:text-[#5C1429]">
-              Tarifs de Livraison (58 Wilayas)
+              Tarifs de Livraison (Wilayas)
             </h4>
             <p className="text-xs text-gray-500">
               Modifier les tarifs de livraison à domicile et en point relais pour chaque wilaya.

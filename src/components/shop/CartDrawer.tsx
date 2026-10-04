@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { X, Plus, Minus, Trash2, ShoppingBag, ArrowRight } from "lucide-react";
 import { useCartStore } from "@/store/cart";
 import { formatPrice } from "@/lib/utils";
@@ -74,10 +75,13 @@ export function CartDrawer() {
                   key={item.product.id}
                   className="flex gap-3 p-3 rounded-xl border border-[#F6DCE2] bg-white hover:border-[#5C1429]/30 transition-colors"
                 >
-                  <img
+                  <Image
                     src={item.product.image}
                     alt={item.product.name}
                     className="w-18 h-18 rounded-lg object-contain bg-[#FAF2F4] p-1 border border-gray-100"
+                    width={72}
+                    height={72}
+                    unoptimized
                   />
                   <div className="flex-1 flex flex-col justify-between">
                     <div>

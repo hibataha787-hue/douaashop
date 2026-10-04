@@ -1,15 +1,18 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { TopBanner } from "@/components/shop/TopBanner";
 import { Header } from "@/components/shop/Header";
 import { Footer } from "@/components/shop/Footer";
 import { useCartStore } from "@/store/cart";
+import { useLanguageStore } from "@/store/language";
 import { formatPrice } from "@/lib/utils";
 import { Minus, Plus, Trash2, ArrowRight, ShoppingBag, ShieldCheck } from "lucide-react";
 
 export default function CartPage() {
   const { items, updateQuantity, removeItem, clearCart, getSubtotal } = useCartStore();
+  const { t, language } = useLanguageStore();
   const subtotal = getSubtotal();
 
   return (
@@ -21,14 +24,14 @@ export default function CartPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between mb-8">
             <h1 className="font-serif italic text-3xl sm:text-4xl text-[#5C1429]">
-              Votre Panier d&apos;Achats
+              {t.cartPage.title}
             </h1>
             {items.length > 0 && (
               <button
                 onClick={clearCart}
                 className="text-xs text-red-600 hover:text-red-700 underline font-medium cursor-pointer"
               >
-                Vider le panier
+                {t.cart.clearCart}
               </button>
             )}
           </div>
@@ -39,16 +42,16 @@ export default function CartPage() {
                 <ShoppingBag className="w-8 h-8 opacity-60" />
               </div>
               <h2 className="font-serif text-xl font-bold text-gray-900">
-                Votre panier est vide
+                {t.cart.empty}
               </h2>
               <p className="text-xs text-gray-500">
-                Laissez-vous tenter par nos nouveautés et cosmétiques d&apos;exception.
+                {t.cart.emptySub}
               </p>
               <Link
                 href="/products"
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#5C1429] text-white text-xs font-bold hover:bg-[#480F20] transition-colors"
               >
-                <span>Découvrir nos produits</span>
+                <span>{t.cartPage.discover}</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
@@ -61,20 +64,25 @@ export default function CartPage() {
                     key={item.product.id}
                     className="flex flex-col sm:flex-row items-center gap-4 p-4 rounded-2xl bg-white border border-[#F5D5DC] shadow-xs"
                   >
-                    <img
+                    <Image
                       src={item.product.image}
                       alt={item.product.name}
                       className="w-24 h-24 rounded-xl object-contain bg-[#FAF2F4] p-2"
+                      width={96}
+                      height={96}
+                      unoptimized
                     />
                     <div className="flex-1 text-center sm:text-left space-y-1">
                       <Link
                         href={`/products/${item.product.slug || item.product.id}`}
                         className="font-bold text-sm text-gray-900 hover:text-[#5C1429] transition-colors"
                       >
-                        {item.product.name}
+                        {language === "ar" && item.product.name_ar
+                          ? item.product.name_ar
+                          : item.product.name}
                       </Link>
                       <p className="text-xs text-gray-500">
-                        Prix unitaire : {formatPrice(item.product.price)}
+                        {t.cartPage.unitPrice} : {formatPrice(item.product.price)}
                       </p>
                     </div>
 
@@ -109,7 +117,7 @@ export default function CartPage() {
                       <button
                         onClick={() => removeItem(item.product.id)}
                         className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-                        title="Supprimer"
+                        title={t.cartPage.remove}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -122,12 +130,12 @@ export default function CartPage() {
               <div className="lg:col-span-4">
                 <div className="bg-white rounded-3xl border border-[#F5D5DC] p-6 space-y-6 shadow-xs sticky top-28">
                   <h3 className="font-serif text-lg font-bold text-[#5C1429]">
-                    Résumé de la commande
+                    {t.cartPage.orderSummary}
                   </h3>
 
                   <div className="space-y-3 text-xs text-gray-600">
                     <div className="flex justify-between">
-                      <span>Sous-total articles :</span>
+                      <span>{t.cartPage.itemsSubtotal}</span>
                       <span className="font-bold text-gray-900">
                         {formatPrice(subtotal)}
                       </span>
@@ -135,11 +143,11 @@ export default function CartPage() {
                     <div className="flex justify-between">
                       <span>Frais de livraison :</span>
                       <span className="text-gray-500 italic">
-                        Calculés à la validation
+                        {t.cartPage.deliveryCalculated}
                       </span>
                     </div>
                     <div className="border-t border-gray-100 pt-3 flex justify-between text-sm">
-                      <span className="font-bold text-gray-900">Total estimé :</span>
+                      <span className="font-bold text-gray-900">{t.cartPage.estimatedTotal}</span>
                       <span className="font-bold text-lg text-[#5C1429]">
                         {formatPrice(subtotal)}
                       </span>
@@ -150,13 +158,13 @@ export default function CartPage() {
                     href="/checkout"
                     className="w-full py-4 rounded-2xl bg-[#5C1429] hover:bg-[#480F20] text-white text-xs font-bold flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all"
                   >
-                    <span>Passer la commande</span>
+                    <span>{t.cart.checkoutBtn}</span>
                     <ArrowRight className="w-4 h-4" />
                   </Link>
 
                   <div className="pt-2 flex items-center gap-2 text-[11px] text-gray-500 justify-center">
                     <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                    <span>Paiement en espèces à la livraison</span>
+                    <span>{t.cartPage.cashOnDelivery}</span>
                   </div>
                 </div>
               </div>

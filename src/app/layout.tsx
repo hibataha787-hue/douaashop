@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Playfair_Display, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
+import { LanguageHydration } from "@/components/shop/LanguageHydration";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -43,6 +44,7 @@ export default function RootLayout({
   return (
     <html lang="fr" className={`${playfair.variable} ${jakarta.variable}`}>
       <body className="min-h-screen flex flex-col font-sans bg-white text-[#1E1E24] antialiased">
+        <LanguageHydration />
         {children}
       </body>
     </html>
