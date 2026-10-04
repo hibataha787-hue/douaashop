@@ -34,7 +34,7 @@ export default function AdminLayout({
     { label: "Tableau de bord", href: "/admin/dashboard", icon: LayoutDashboard },
     { label: "Produits & Prix", href: "/admin/products", icon: Package },
     { label: "Catégories", href: "/admin/categories", icon: Layers },
-    { label: "Frais de livraison (58 Wilayas)", href: "/admin/delivery", icon: Truck },
+    { label: "Frais de livraison ( Wilayas)", href: "/admin/delivery", icon: Truck },
   ];
 
   const handleLogout = async () => {

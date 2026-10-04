@@ -39,7 +39,7 @@ export const translations = {
     },
     trust: {
       deliveryTitle: "Livraison partout en Algérie",
-      deliveryDesc: "Rapide et fiable dans 58 wilayas",
+      deliveryDesc: "Rapide et fiable dans tout wilayas",
       paymentTitle: "Paiement à la livraison",
       paymentDesc: "Simple, rassurant et sécurisé",
       authenticTitle: "Produits 100% authentiques",
@@ -110,7 +110,7 @@ export const translations = {
       addedToCart: "Ajouté au panier !",
       buyNow: "Acheter maintenant",
       related: "Vous aimerez aussi",
-      delivery: "Livraison 58 Wilayas",
+      delivery: "Livraison tout Wilayas",
       payment: "Paiement à la livraison",
       authentic: "100% Authentique",
       image: "Afficher l'image",
@@ -123,7 +123,7 @@ export const translations = {
       fullNamePlaceholder: "Ex: Amira Benali",
       phone: "Numéro de téléphone",
       phonePlaceholder: "Ex: 0550 12 34 56 ou 06 / 07...",
-      wilaya: "Wilaya de livraison (58 Wilayas)",
+      wilaya: "Wilaya de livraison ( Wilayas)",
       selectWilaya: "Sélectionnez votre wilaya",
       address: "Adresse complète / Commune",
       addressPlaceholder: "Ex: Cité 500 logts, Bâtiment B, Alger Centre",
@@ -192,12 +192,12 @@ export const translations = {
       customerService: "Service Client",
       contactText: "Une question ? Contactez notre équipe sur notre compte Instagram officiel.",
       rights: "Tous droits réservés.",
-      allWilayas: "Livraison disponible dans les 58 Wilayas d'Algérie.",
+      allWilayas: "Livraison disponible dans les  Wilayas d'Algérie.",
     }
   },
   ar: {
     topBanner: {
-      delivery: "التوصيل متوفر لجميع ولايات الجزائر (58 ولاية)",
+      delivery: "التوصيل متوفر لجميع ولايات الجزائر ( ولاية)",
       payment: "الدفع عند الاستلام",
       authentic: "منتجات أصلية 100%",
       followUs: "تابعينا على :",
@@ -232,7 +232,7 @@ export const translations = {
       viewAll: "عرض كل الأقسام",
     },
     trust: {
-      deliveryTitle: "توصيل سريع 58 ولاية",
+      deliveryTitle: "توصيل سريع  ",
       deliveryDesc: "خدمة توصيل موثوقة حتى باب منزلك",
       paymentTitle: "الدفع عند الاستلام",
       paymentDesc: "تسوقي بكل راحة وأمان",
@@ -304,7 +304,7 @@ export const translations = {
       addedToCart: "تمت الإضافة إلى السلة!",
       buyNow: "اشتري الآن",
       related: "قد يعجبك أيضاً",
-      delivery: "توصيل إلى 58 ولاية",
+      delivery: "توصيل إلى  ولاية",
       payment: "الدفع عند الاستلام",
       authentic: "أصلي 100%",
       image: "عرض الصورة",
@@ -317,7 +317,7 @@ export const translations = {
       fullNamePlaceholder: "مثال: أميرة بن علي",
       phone: "رقم الهاتف",
       phonePlaceholder: "مثال: 0550123456 أو 06 / 07...",
-      wilaya: "الولاية (58 ولاية)",
+      wilaya: "الولاية ",
       selectWilaya: "اختر ولايتك",
       address: "العنوان بالتفصيل / البلدية",
       addressPlaceholder: "مثال: حي 500 مسكن، عمارة ب، وسط المدينة",
@@ -386,7 +386,7 @@ export const translations = {
       customerService: "خدمة الزبائن",
       contactText: "لديكِ أي استفسار؟ تواصلي مع فريقنا عبر حسابنا الرسمي على انستغرام.",
       rights: "جميع الحقوق محفوظة.",
-      allWilayas: "التوصيل متوفر لـ 58 ولاية جزائرية.",
+      allWilayas: "التوصيل متوفر لـ  ولاية جزائرية.",
     }
   }
 };

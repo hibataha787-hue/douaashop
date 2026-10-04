@@ -17,8 +17,8 @@ const jakarta = Plus_Jakarta_Sans({
 
 export const metadata: Metadata = {
   title: "Douaa Shop | Beauté & Élégance au quotidien",
-  description: "Boutique en ligne de cosmétiques, parfums d'exception et accessoires en Algérie. Livraison 58 Wilayas et paiement à la livraison.",
-  keywords: ["cosmétiques", "parfums algérie", "maquillage", "douaa shop", "livraison 58 wilayas", "yara lattafa"],
+  description: "Boutique en ligne de cosmétiques, parfums d'exception et accessoires en Algérie. Livraison  wilayas et paiement à la livraison.",
+  keywords: ["cosmétiques", "parfums algérie", "maquillage", "douaa shop", "livraison  wilayas", "yara lattafa"],
   openGraph: {
     title: "Douaa Shop | Beauté & Élégance au quotidien",
     description: "Cosmétiques, parfums et accessoires en Algérie. Paiement à la livraison.",
