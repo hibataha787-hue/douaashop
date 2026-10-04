@@ -17,7 +17,6 @@ import {
   MapPin,
   User,
   AlertCircle,
-  Share2,
 } from "lucide-react";
 import { InstagramIcon } from "@/components/ui/InstagramIcon";
 import { useLanguageStore } from "@/store/language";
@@ -26,6 +25,9 @@ export default function ConfirmationPage() {
   const { t } = useLanguageStore();
   const [order, setOrder] = useState<OrderSummary | null>(null);
   const [instagramMessage, setInstagramMessage] = useState<string>("");
+  const [instagramUrl, setInstagramUrl] = useState(
+    "https://www.instagram.com/douaa_shop.0/"
+  );
   const [isCopied, setIsCopied] = useState(false);
   const [instagramStatus, setInstagramStatus] = useState("");
 
@@ -34,6 +36,7 @@ export default function ConfirmationPage() {
       try {
         const storedOrder = sessionStorage.getItem("last_order");
         const storedMsg = sessionStorage.getItem("instagram_message");
+        const storedUrl = sessionStorage.getItem("instagram_url");
 
         if (storedOrder) {
           setOrder(JSON.parse(storedOrder) as OrderSummary);
@@ -49,8 +52,10 @@ export default function ConfirmationPage() {
           }
         }
         if (storedMsg) setInstagramMessage(storedMsg);
+        if (storedUrl?.startsWith("https://")) setInstagramUrl(storedUrl);
         sessionStorage.removeItem("last_order");
         sessionStorage.removeItem("instagram_message");
+        sessionStorage.removeItem("instagram_url");
       } catch (error) {
         console.error("Impossible de charger le récapitulatif de commande :", error);
         setInstagramStatus(
@@ -99,26 +104,10 @@ export default function ConfirmationPage() {
     }
   };
 
-  const handleShareMessage = async () => {
-    if (!instagramMessage) {
-      setInstagramStatus(t.confirmation.shareError);
-      return;
-    }
-    if (!navigator.share) {
-      setInstagramStatus(t.confirmation.shareUnsupported);
-      return;
-    }
-
-    try {
-      await navigator.share({ text: instagramMessage });
-      setInstagramStatus(t.confirmation.shareSuccess);
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") {
-        return;
-      }
-      console.error("Impossible de partager le message de commande :", error);
-      setInstagramStatus(t.confirmation.shareError);
-    }
+  const handleOpenInstagram = () => {
+    const copyPromise = handleCopyMessage();
+    window.open(instagramUrl, "_blank", "noopener,noreferrer");
+    void copyPromise;
   };
 
   return (
@@ -179,7 +168,7 @@ export default function ConfirmationPage() {
                       {t.confirmation.messageHeading}
                     </h3>
                     <p className="text-[11px] text-gray-500 mt-0.5">
-                      {t.confirmation.shareInstructions}
+                      {t.confirmation.pasteToInstagram}
                     </p>
                   </div>
                 </div>
@@ -206,11 +195,11 @@ export default function ConfirmationPage() {
               {/* Buttons */}
               <div className="flex flex-col sm:flex-row gap-3">
                 <button
-                  onClick={handleShareMessage}
+                  onClick={handleOpenInstagram}
                   className="flex-1 py-3.5 px-5 rounded-xl bg-gradient-to-r from-[#D62976] via-[#962FBF] to-[#4F5BD5] hover:opacity-95 active:scale-[0.98] text-white text-xs font-bold flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
                 >
-                  <Share2 className="w-4 h-4" />
-                  <span>{t.confirmation.shareMessage}</span>
+                  <InstagramIcon className="w-4 h-4" />
+                  <span>{t.confirmation.sendInstagramBtn}</span>
                 </button>
                 <button
                   onClick={handleCopyMessage}
